@@ -43,6 +43,7 @@ C     GM_useLeithQG    :: add Leith QG viscosity to GMRedi tensor
       LOGICAL GM_useLeithQG
       LOGICAL GM_useML
       LOGICAL GM_MLEner
+      LOGICAL GM_Burger
       LOGICAL UpVp_useML
       LOGICAL UpVp_VertStruc
       LOGICAL SmoothUpVp
@@ -57,7 +58,7 @@ C     GM_useLeithQG    :: add Leith QG viscosity to GMRedi tensor
      &                   GM_useK3D, GM_K3D_smooth, GM_K3D_use_constK,
      &                   GM_K3D_beta_eq_0, GM_K3D_ThickSheet,
      &                   GM_K3D_surfK, GM_K3D_constRedi, GM_useLeithQG,
-     &                   GM_useML, GM_MLEner,
+     &                   GM_useML, GM_MLEner, GM_Burger,
      &                   UpVp_useML, UpVp_VertStruc,
      &                   Prograde, SmoothDUpVpDy,
      &                   SmoothUpVp, SmoothKgm

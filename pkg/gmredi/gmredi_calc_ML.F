@@ -55,6 +55,7 @@ C     uFld_C   :: 3D zonal velocity at cell centers
 C     E_ML     :: Energy predicted by ANN
 C     BVint    :: The vertical integral of Buoyancy frequency
 C     Siso     :: Bulk isopycnal slope
+C     delta    :: Slope parameter
 C     Uzavg    :: Depth-mean zonal velocity at cell centers
 C     H        :: Water depth (positive) at cell centers
 C     SBurger  :: Slope Burger Number  N/f*H_y
@@ -76,6 +77,7 @@ C     Beta_t   :: Topographic beta     f/H*H_y
       _RL dSigmaDyZint(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL dSigmaDrZint(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL Siso(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
+      _RL delta(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL Ri(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL Ld(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
       _RL Lrhines(1-OLx:sNx+OLx,1-OLy:sNy+OLy)      
@@ -178,9 +180,10 @@ C    Notice that this H cannot be used in depth-avg calculations.
       
       
 C    Bathymetric slope at cell center
+C    H used here is positive  
       DO j=1-Oly+1,sNy+Oly-1
        DO i=1-Olx,sNx+Olx
-        dHdy(i,j) = op5 *
+        dHdy(i,j) = -op5 *
      &            (H(i,j+1)-H(i,j-1))
      &            *_recip_dyF(i,j,bi,bj)*maskC(i,j,1,bi,bj)
      &            *maskC(i,j+1,1,bi,bj)*maskC(i,j-1,1,bi,bj)
@@ -558,7 +561,7 @@ C    both Energy-kgm scheme and Kgm-ANN scheme
       DO j=1-Oly+1,sNy+Oly-1
        DO i=1-Olx,sNx+Olx
         IF (fCori(i,j,bi,bj).NE. 0.0 _d 0) THEN
-        SBurger(i,j) = BVzavg(i,j)/fCori(i,j,bi,bj)*dHdy(i,j)
+        SBurger(i,j) = BVzavg(i,j)/fCori(i,j,bi,bj)*abs(dHdy(i,j))
         ENDIF
        ENDDO
       ENDDO
@@ -658,13 +661,13 @@ C     Compute bulk Richardson number
 C      IF ( SmoothSiso ) THEN      
 C      DO j=1-Oly+1,sNy+Oly-2
 C       DO i=1-Olx,sNx+Olx-1      
-          Ri(i,j) = ( temp_2D(i,j)*1. _d 0
-     &                + temp_2D(i,j-1)*maskC(i,j-1,1,bi,bj)
-     &                + temp_2D(i,j+1)*maskC(i,j+1,1,bi,bj))
-     &               /( 1. _d 0
-     &                 + maskC(i,j-1,1,bi,bj)
-     &                 + maskC(i,j+1,1,bi,bj))      
-     &                 * maskC(i,j,1,bi,bj)
+C          Ri(i,j) = ( temp_2D(i,j)*1. _d 0
+C     &                + temp_2D(i,j-1)*maskC(i,j-1,1,bi,bj)
+C     &                + temp_2D(i,j+1)*maskC(i,j+1,1,bi,bj))
+C     &               /( 1. _d 0
+C     &                 + maskC(i,j-1,1,bi,bj)
+C     &                 + maskC(i,j+1,1,bi,bj))      
+C     &                 * maskC(i,j,1,bi,bj)
 C       ENDDO
 C      ENDDO     
           
@@ -696,8 +699,9 @@ C            Enforce lower and upper bounds on the diffusivity
            
           
       ELSE
-C Scalings for Kgm in retrograde flows          
-        DO j=1-Oly+1,sNy+Oly-1
+C Scalings for Kgm in retrograde flows     
+          
+      DO j=1-Oly+1,sNy+Oly-1
        DO i=1-Olx,sNx+Olx-1
         IF (Beta_t(i,j).NE. 0.0 _d 0) THEN
            Lrhines(i,j) = sqrt(Ue(i,j)/Beta_t(i,j))
@@ -707,8 +711,8 @@ C Scalings for Kgm in retrograde flows
        ENDDO
        ENDDO     
                    
-         
-       
+       IF(GM_Burger) THEN  
+C  Use empirical function of Burger number to constrain Kgm       
       DO j=1-Oly+1,sNy+Oly-1
        DO i=1-Olx,sNx+Olx-1
         IF (H(i,j) .LT. 2.25 _d 3) THEN
@@ -725,7 +729,7 @@ C Scalings for Kgm in retrograde flows
         DO i=1-Olx,sNx+Olx-1   
          GM_ML_temp(i,j,k) 
      &        = 0.24*(SBurger(i,j) + 1/(209.0*(SBurger(i,j)+0.0025)) )
-     &             *Ue(i,j)*Lmix(i,j);
+     &             *Ue(i,j)*Lmix(i,j)
 C            Enforce lower and upper bounds on the diffusivity
              GM_ML_temp(i,j,k) 
      &                = MIN(GM_ML_temp(i,j,k),GM_ML_maxVal_K)
@@ -734,8 +738,43 @@ C            Enforce lower and upper bounds on the diffusivity
            ENDDO
        ENDDO
        ENDDO   
-
        
+      ELSE
+C  Use empirical function of slope parameter to constrain Kgm 
+
+C     Compute slope parameter
+        DO j=1-Oly,sNy+Oly-1
+         DO i=1-Olx,sNx+Olx-1
+          IF ( Siso(i,j) .NE. 0.0 _d 0 ) THEN  
+          delta(i,j)= dHdy(i,j)/Siso(i,j)
+          ENDIF
+         ENDDO
+        ENDDO    
+        
+C    predict kgm
+      DO k=1,Nr
+       DO j=1-Oly+1,sNy+Oly-1
+        DO i=1-Olx,sNx+Olx-1   
+            
+C         GM_ML_temp(i,j,k) 
+C     &        =     2.5 _d 0 *( abs(delta(i,j)) +
+C     &              1/(0.05*(abs(delta(i,j))+0.05)) )
+         
+         GM_ML_temp(i,j,k) 
+     &        =     3.3 _d -3 *( abs(delta(i,j)) +
+     &              1/(abs(delta(i,j))+0.01) )*
+     &              Ue(i,j)*Lrhines(i,j)
+         
+C            Enforce lower and upper bounds on the diffusivity
+             GM_ML_temp(i,j,k) 
+     &                = MIN(GM_ML_temp(i,j,k),GM_ML_maxVal_K)
+             GM_ML_temp(i,j,k) 
+     &                = MAX(GM_ML_temp(i,j,k),GM_ML_minVal_K)        
+           ENDDO
+       ENDDO
+       ENDDO          
+
+       ENDIF
      
 C ENDIF for prograde or retrograde          
       ENDIF
@@ -752,7 +791,12 @@ C     Diagnostics
         CALL DIAGNOSTICS_FILL(Lmix,    'EKEANNI3',0,1,2,bi,bj,myThid)
       ENDIF  
       
+      IF(GM_Burger) THEN
         CALL DIAGNOSTICS_FILL(SBurger, 'EKEANNI2',0,1,2,bi,bj,myThid)
+      ELSE
+        CALL DIAGNOSTICS_FILL(delta, 'EKEANNI2',0,1,2,bi,bj,myThid)  
+      ENDIF
+      
         CALL DIAGNOSTICS_FILL(E_ML,  'EKEANNI4',0,Nr,2,bi,bj,myThid)
       ENDIF
 #endif

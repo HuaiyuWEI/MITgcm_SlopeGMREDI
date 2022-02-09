@@ -73,7 +73,7 @@ C     GM_slopeSqCutoff :: slope^2 cut-off value
      &          GM_K3D_constRedi, GM_K3D_minRenorm,
      &          GM_K3D_maxRenorm, GM_useLeithQG,
      &          GM_ML_minVal_K, GM_ML_maxVal_K,
-     &          GM_ML_minN2, GM_useML, GM_MLEner,
+     &          GM_ML_minN2, GM_useML, GM_MLEner, GM_Burger,
      &          GM_ML_w0, GM_ML_w1, GM_ML_w2,
      &          GM_ML_b0, GM_ML_b1, GM_ML_b2,
      &          UpVp_useML, SmoothUpVp, 
@@ -126,6 +126,7 @@ C--   Default values GM/Redi
       GM_useLeithQG       = .FALSE.
       GM_useML            = .FALSE.
       GM_MLEner           = .FALSE.
+      GM_Burger           = .TRUE.
       UpVp_useML          = .FALSE.
       SmoothUpVp          = .FALSE.
       UpVp_VertStruc      = .FALSE.
