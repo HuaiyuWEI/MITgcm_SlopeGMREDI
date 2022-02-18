@@ -318,8 +318,8 @@ C Make sure domain-avg Reynolds forcing is zero
           DO k=1,Nr
             DO j=1-Oly,sNy+Oly
               DO i=1-Olx,sNx+Olx
-        DupvpDy_ML(i,j,k,bi,bj) = DupvpDy_ML(i,j,k,bi,bj) -
-     &               DupvpDy_ML_DomAvg/DomainVolume
+        DupvpDy_ML(i,j,k,bi,bj) = (DupvpDy_ML(i,j,k,bi,bj) -
+     &               DupvpDy_ML_DomAvg/DomainVolume)*maskC(i,j,k,bi,bj)
               ENDDO
             ENDDO
           ENDDO

@@ -306,14 +306,14 @@ C     Smooth DupvpDy vertically
 
       ELSE
 C     Depth-mean version             
-      DO k=1,Nr      
+      DO k=3,Nr      
        DO j=1-Oly+1,sNy+Oly-1
         DO i=1-Olx+1,sNx+Olx
-C        IF (k.LE. kLowC(i,j,bi,bj)-3) THEN            
+        IF (k.LE. kLowC(i,j,bi,bj)-2) THEN            
             DupvpDy_ML_temp2(i,j) = DupvpDy_ML_temp2(i,j) + 
      &               drF(k)*hfacC(i,j,k,bi,bj)*temp(i,j,k) 
             Depth_temp(i,j) = Depth_temp(i,j)+drF(k)*hfacC(i,j,k,bi,bj)
-C        ENDIF
+        ENDIF
         ENDDO 
        ENDDO
       ENDDO
@@ -343,6 +343,7 @@ C this means OLy should be larger or equal to 3
      &                 + maskC(i,j-1,k,bi,bj)
      &                 + maskC(i,j+1,k,bi,bj))      
      &                 * maskC(i,j,k,bi,bj)
+C     &                             *(4000-abs(rC(k)))/2000
           ENDDO
        ENDDO 
       ENDDO  
@@ -352,6 +353,7 @@ C this means OLy should be larger or equal to 3
       DO j=1-OLy+2,sNy+OLy-2
        DO i=1-OLx+1,sNx+OLx    
           DupvpDy_ML(i,j,k,bi,bj) = DupvpDy_ML_temp(i,j,k)
+C     &                             *(4000-abs(rC(k)))/2000
         ENDDO
       ENDDO   
       ENDDO
@@ -366,7 +368,7 @@ C     Diagnostics
       IF ( useDiagnostics ) THEN
       CALL DIAGNOSTICS_FILL(UpVp_ML_temp,'UpVp_ML ',0,Nr,2,bi,bj,myThid)
       CALL DIAGNOSTICS_FILL(temp,'DupvpDy2',0,Nr,2,bi,bj,myThid)
-      CALL DIAGNOSTICS_FILL(DupvpDy_ML,'DupvpDy ',0,Nr,1,bi,bj,myThid)
+C      CALL DIAGNOSTICS_FILL(DupvpDy_ML,'DupvpDy ',0,Nr,1,bi,bj,myThid)
       ENDIF
 #endif
 
