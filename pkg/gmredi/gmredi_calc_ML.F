@@ -71,6 +71,11 @@ C     Beta_t   :: Topographic beta     f/H*H_y
       _RL E_ML(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
       _RL UpVp_ML_temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
       _RL GM_ML_temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
+      _RL Kappa0(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
+      _RL Aniso(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
+      _RL Suppres(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)      
+      
+      _RL Cparam(1-Olx:sNx+Olx,1-Oly:sNy+Oly) 
       _RL BVint(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL BVzavg(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL dSigmaDxZint(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
@@ -91,7 +96,9 @@ C     Beta_t   :: Topographic beta     f/H*H_y
       _RL E_ML_zavg(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL Ue(1-Olx:sNx+Olx,1-Oly:sNy+Oly) 
       
+C GM_VertStrucFlag     
       _RL Input(4,1)
+      
       _RL ML0(64,1)
       _RL ML1(32,1)
       _RL ML2(1,1)
@@ -255,7 +262,31 @@ C         The minus sign is because r_Low<0
         ENDIF
        ENDDO
        ENDDO      
-
+          
+C     Calculate depth-mean along-shore velocity
+C     Calculate the barotropic velocity by vertically integrating
+C     and then dividing by the depth of the water column
+C     Note that Uzavg is at the Cell certer.
+      DO k=1,Nr
+       DO j=1-Oly,sNy+Oly
+        DO i=1-Olx,sNx+Olx-1
+            Uzavg(i,j) = Uzavg(i,j) + 
+     &               drF(k)*hfacC(i,j,k,bi,bj)*uFld_C(i,j,k)      
+        ENDDO
+       ENDDO
+      ENDDO
+      DO j=1-Oly,sNy+Oly
+       DO i=1-Olx,sNx+Olx-1
+        IF (r_Low(i,j,bi,bj).NE. 0.0 _d 0) THEN
+C         The minus sign is because r_Low<0
+          Uzavg(i,j) = -Uzavg(i,j)/r_Low(i,j,bi,bj)
+          ELSE
+          Uzavg(i,j) = 0.0 _d 0
+        ENDIF
+       ENDDO
+       ENDDO
+       
+       
       
 C     ----------   Reynolds stress part begins    ------------
       IF ( UpVp_useML .OR.  GM_MLEner) THEN
@@ -542,18 +573,16 @@ C   ENDIF for IF ( UpVp_useML )
 C     ----------      Kgm part     ------------
    
       IF ( .NOT. GM_useML ) THEN
-      
       DO k=1,Nr
        DO j=1-Oly,sNy+Oly
         DO i=1-Olx,sNx+Olx
              GM_ML_k(i,j,k,bi,bj) = 0.0 _d 0
         ENDDO
        ENDDO
-      ENDDO  
-
+      ENDDO 
+      
       ELSE
-     
-          
+         
 C    slope Burger number
 C    calculated here because it is used in 
 C    both Energy-kgm scheme and Kgm-ANN scheme     
@@ -566,8 +595,9 @@ C    both Energy-kgm scheme and Kgm-ANN scheme
        ENDDO
       ENDDO
       
+      ENDIF       
       
-      IF ( GM_MLEner ) THEN
+      IF ( GM_useML .AND. GM_MLEner .OR. REDI_useML) THEN
 C    Energy-kgm scheme begin  
 C    Predict EKE or E over continental slope
 C    which is later used to infer Kgm via traditional scalings      
@@ -640,9 +670,9 @@ C         The minus sign is because r_Low<0
           Ue(i,j)=sqrt(2.0*E_ML_zavg(i,j)) 
        ENDDO
        ENDDO
+       ENDIF
        
-       
-      IF(Prograde) THEN
+      IF(GM_useML .AND. GM_MLEner .AND. Prograde) THEN
 C Scalings for Kgm in prograde flows              
           
 
@@ -698,7 +728,7 @@ C            Enforce lower and upper bounds on the diffusivity
        ENDDO       
            
           
-      ELSE
+      ELSEIF(GM_useML .AND. GM_MLEner .AND. .NOT. Prograde) THEN
 C Scalings for Kgm in retrograde flows     
           
       DO j=1-Oly+1,sNy+Oly-1
@@ -777,8 +807,8 @@ C            Enforce lower and upper bounds on the diffusivity
        ENDIF
      
 C ENDIF for prograde or retrograde          
-      ENDIF
-       
+       ENDIF
+      
 #ifdef ALLOW_DIAGNOSTICS
 C     Diagnostics
       IF ( useDiagnostics ) THEN
@@ -801,62 +831,67 @@ C     Diagnostics
       ENDIF
 #endif
        
-       
-      ELSE
+ 
+
+C    Use Neural Network to predict Kgm directly 
+      IF (GM_useML .AND. .NOT. GM_MLEner) THEN
+C GM_VertStrucFlag
+CC    Calulate Depth-varying form of Kgm
+C      DO k=1,Nr
+C       DO j=1-Oly+1,sNy+Oly-1
+C        DO i=1-Olx,sNx+Olx-1
+C         IF (k.LE.kLow_C(i,j)) THEN
+C             Input(1,1) = abs(Uzavg(i,j))/GM_ML_normal(1,1)
+C             Input(2,1) = (H(i,j)-abs(rC(k)))/H(i,j)/GM_ML_normal(1,2)
+C             Input(3,1) = (4000-abs(rC(k)))/4000/GM_ML_normal(1,3)
+C             Input(4,1) = SBurger(i,j)/GM_ML_normal(1,4)
+C             Input(5,1) = (4000-H(i,j))/4000/GM_ML_normal(1,5)
+C             Input(6,1) = beta_t(i,j)/GM_ML_normal(1,6)
+C             ML0 = matmul(GM_ML_w0,Input) + GM_ML_b0
+C             ML0 = ((1.+0.2)*ML0+(1.0-0.2)*abs(ML0))/2.0;
+C             ML1 = matmul(GM_ML_w1,ML0) + GM_ML_b1
+C             ML1 = ((1.+0.2)*ML1+(1.0-0.2)*abs(ML1))/2.0;
+C             ML2(1:1,1:1) = matmul(GM_ML_w2,ML1)+ GM_ML_b2(1,1)
+C             GM_ML_temp(i,j,k) = ML2(1,1)/abs(ML2(1,1))
+C     &                           *(ML2(1,1)*GM_ML_normal(1,7))**2
+CC            Enforce lower and upper bounds on the diffusivity
+C             GM_ML_temp(i,j,k) 
+C     &                = MIN(GM_ML_temp(i,j,k),GM_ML_maxVal_K)
+C             GM_ML_temp(i,j,k) 
+C     &                = MAX(GM_ML_temp(i,j,k),GM_ML_minVal_K)
+C          ENDIF
+C         ENDDO
+C        ENDDO
+C       ENDDO                  
           
-C     Input: depth-mean along-shore velocity
-C     Calculate the barotropic velocity by vertically integrating
-C     and then dividing by the depth of the water column
-C     Note that Uzavg is at the Cell certer.
-      DO k=1,Nr
-       DO j=1-Oly,sNy+Oly
-        DO i=1-Olx,sNx+Olx-1
-            Uzavg(i,j) = Uzavg(i,j) + 
-     &               drF(k)*hfacC(i,j,k,bi,bj)*uFld_C(i,j,k)      
-        ENDDO
-       ENDDO
-      ENDDO
-      DO j=1-Oly,sNy+Oly
-       DO i=1-Olx,sNx+Olx-1
-        IF (r_Low(i,j,bi,bj).NE. 0.0 _d 0) THEN
-C         The minus sign is because r_Low<0
-          Uzavg(i,j) = -Uzavg(i,j)/r_Low(i,j,bi,bj)
-          ELSE
-          Uzavg(i,j) = 0.0 _d 0
-        ENDIF
-       ENDDO
-       ENDDO
-
-
-       
-            
-C    Calulate diffusivity
+         
+C    Calculate bulk form of Kgm
       DO k=1,Nr
        DO j=1-Oly+1,sNy+Oly-1
         DO i=1-Olx,sNx+Olx-1
          IF (k.LE.kLow_C(i,j)) THEN
-             Input(1,1) = abs(Uzavg(i,j))/0.1492
-             Input(2,1) = SBurger(i,j)
-             Input(3,1) = (4000-abs(H(i,j)))/4000
-             Input(4,1) = Ld(i,j)/10415.94
+             Input(1,1) = abs(Uzavg(i,j))/GM_ML_normal(1,1)
+             Input(2,1) = SBurger(i,j)/GM_ML_normal(1,2)
+             Input(3,1) = (4000-abs(H(i,j)))/4000/GM_ML_normal(1,3)
+             Input(4,1) = Ld(i,j)/GM_ML_normal(1,4)
              ML0 = matmul(GM_ML_w0,Input) + GM_ML_b0
              ML0 = ((1.+0.2)*ML0+(1.0-0.2)*abs(ML0))/2.0;
              ML1 = matmul(GM_ML_w1,ML0) + GM_ML_b1
              ML1 = ((1.+0.2)*ML1+(1.0-0.2)*abs(ML1))/2.0;
-             ML2(1:1,1:1) = matmul(GM_ML_w2(1:1,1:32),ML1(1:32,1:1)) 
-     &                           + GM_ML_b2(1,1)
+             ML2(1:1,1:1) = matmul(GM_ML_w2,ML1) + GM_ML_b2           
              GM_ML_temp(i,j,k) = ML2(1,1)/abs(ML2(1,1))
-     &                           *ML2(1,1)*ML2(1,1)*233.85
+     &                           *(ML2(1,1)*GM_ML_normal(1,5))**2
 C            Enforce lower and upper bounds on the diffusivity
              GM_ML_temp(i,j,k) 
      &                = MIN(GM_ML_temp(i,j,k),GM_ML_maxVal_K)
              GM_ML_temp(i,j,k) 
      &                = MAX(GM_ML_temp(i,j,k),GM_ML_minVal_K)
-           ENDIF
+             
+          ENDIF
+         ENDDO
         ENDDO
-       ENDDO
        ENDDO     
-       
+ 
        
 
 #ifdef ALLOW_DIAGNOSTICS
@@ -869,11 +904,11 @@ C     Diagnostics
       ENDIF
 #endif
 
-
-C ENDIF for  IF ( GM_MLEner )    
       ENDIF
-       
-       IF ( SmoothKgm ) THEN 
+
+      
+      IF ( GM_useML ) THEN 
+      IF ( SmoothKgm ) THEN 
           DO k=1,Nr
            DO j=1-Oly+2,sNy+Oly-2
             DO i=1-Olx,sNx+Olx-1     
@@ -898,13 +933,84 @@ C ENDIF for  IF ( GM_MLEner )
            ENDDO
           ENDDO 
        ENDIF
-
+       ENDIF
        
-C ENDIF for IF ( .NOT. GM_useML )
-         ENDIF   
+  
 C     ----------    Kgm part ends    ------------
 
 
+C     ----------      Kredi part     ------------
+   
+      IF ( .NOT. REDI_useML ) THEN
+      
+        DO k=1,Nr
+         DO j=1-Oly,sNy+Oly
+          DO i=1-Olx,sNx+Olx
+               REDI_ML_k(i,j,k,bi,bj) = 0.0 _d 0
+          ENDDO
+         ENDDO
+        ENDDO  
+
+      ELSE 
+          
+C     Compute slope parameter, and exclude negative values
+        DO j=1-Oly+1,sNy+Oly-1
+         DO i=1-Olx,sNx+Olx-1
+          IF ( Siso(i,j) .NE. 0.0 _d 0 
+     &                  .AND. abs(dHdy(i,j)) .GT. 3.0 _d -4) THEN
+          delta(i,j)= dHdy(i,j)/Siso(i,j)
+          delta(i,j)=MAX(delta(i,j),0.0 _d 0)
+          ELSE
+          delta(i,j)= 0.0 _d 0    
+          ENDIF            
+         ENDDO
+        ENDDO 
+  
+C     Compute the distance to the lateral boundary
+     
+
+        
+         
+         DO j=1-Oly+1,sNy+Oly-1
+          DO i=1-Olx,sNx+Olx-1                       
+C                 Cparam(i,j) = 0.22 * uFld_C(i,j,1) *tanh(delta(i,j)) 
+C     &                  + Uzavg(i,j) * exp(-2*delta(i,j))
+              Cparam(i,j) = 0.70 * Uzavg(i,j) 
+          ENDDO
+         ENDDO
+         
+        DO k=1,Nr
+         DO j=1-Oly+1,sNy+Oly-1
+          DO i=1-Olx,sNx+Olx-1     
+            IF (k.LE.kLow_C(i,j)) THEN
+         Kappa0(i,j,k) = sqrt(2.0*E_ML(i,j,k)) 
+     &                            * min(Ld(i,j),Lw(i,j,k,bi,bj))
+         Aniso(i,j,k) = 0.025/((4.0 _d 7 * Beta_t(i,j))**0.75+0.05)*
+     &            ( 1.0+0.025*cos(pi*abs(rC(k)/r_Low(i,j,bi,bj)))
+     &               /(delta(i,j)**-3 + 0.025) )
+         Suppres(i,j,k) = 
+     &         1.0/(1.0+5.0*((Cparam(i,j)- uFld_C(i,j,k))/Ue(i,j))**2)
+         REDI_ML_k(i,j,k,bi,bj) = 
+     &               2.5*Aniso(i,j,k)*Suppres(i,j,k)*Kappa0(i,j,k)
+            ENDIF
+          ENDDO
+         ENDDO
+        ENDDO
+      
+      ENDIF 
+      
+#ifdef ALLOW_DIAGNOSTICS
+C     Diagnostics
+      IF ( useDiagnostics ) THEN
+        CALL DIAGNOSTICS_FILL(Kappa0,   'REDI_K0 ',0,Nr,2,bi,bj,myThid)
+        CALL DIAGNOSTICS_FILL(Aniso,    'REDI_A  ',0,Nr,2,bi,bj,myThid)
+        CALL DIAGNOSTICS_FILL(Suppres,  'REDI_S  ',0,Nr,2,bi,bj,myThid)
+        CALL DIAGNOSTICS_FILL(Cparam,   'REDI_C  ',0,1,2,bi,bj,myThid)
+        CALL DIAGNOSTICS_FILL(delta,    'Sdelta  ',0,1,2,bi,bj,myThid)
+      ENDIF
+#endif
+      
+      
 #endif /* ALLOW_GM_ML */
 
       RETURN

@@ -684,6 +684,49 @@ c     IF ( useDiagnotics ) THEN
       CALL DIAGNOSTICS_ADDTOLIST( diagNum,
      I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
       
+
+      diagName  = 'REDI_ANN'
+      diagTitle = 'Predicted isopycnal eddy diffusivity'
+      diagUnits = 'm^2/s           '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )   
+      
+      diagName  = 'REDI_K0 '
+      diagTitle = 'Unsuppressed isotropic diffusivity'
+      diagUnits = 'm^2/s             '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )  
+      
+      diagName  = 'REDI_A  '
+      diagTitle = 'Eddy anisotropy factor'
+      diagUnits = 'none           '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )   
+      
+      diagName  = 'REDI_S  '
+      diagTitle = 'Mean flow suppression factor'
+      diagUnits = 'none           '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
+
+      
+      diagName  = 'REDI_C  '
+      diagTitle = 'Parameterized bulk eddy phase speed'
+      diagUnits = 'none           '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
+      
+      diagName  = 'Sdelta  '
+      diagTitle = 'Slope parameter used in the calculation of Kredi'
+      diagUnits = 'none           '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
 #endif
 
 c     ENDIF

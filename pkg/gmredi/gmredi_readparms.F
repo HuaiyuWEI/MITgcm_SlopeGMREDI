@@ -72,15 +72,16 @@ C     GM_slopeSqCutoff :: slope^2 cut-off value
      &          GM_K3D_beta_eq_0, GM_K3D_Rmin, GM_K3D_ThickSheet,
      &          GM_K3D_constRedi, GM_K3D_minRenorm,
      &          GM_K3D_maxRenorm, GM_useLeithQG,
-     &          GM_ML_minVal_K, GM_ML_maxVal_K,
+     &          GM_ML_minVal_K, GM_ML_maxVal_K, REDI_useML,
      &          GM_ML_minN2, GM_useML, GM_MLEner, GM_Burger,
+     &          GM_NoParCel,
      &          GM_ML_w0, GM_ML_w1, GM_ML_w2,
      &          GM_ML_b0, GM_ML_b1, GM_ML_b2,
      &          UpVp_useML, SmoothUpVp, 
      &          UpVp_ML_maxVal, DUpVpDy_ML_maxVal,
      &          UpVp_ML_w0, UpVp_ML_w1, UpVp_ML_w2,
      &          UpVp_ML_b0, UpVp_ML_b1, UpVp_ML_b2,
-     &          E_ML_normal, Prograde,
+     &          E_ML_normal, GM_ML_normal, Prograde,
      &          E_ML_w0, E_ML_w1, E_ML_w2,
      &          E_ML_b0, E_ML_b1, E_ML_b2,
      &          UpVp_VertStruc, R_low_orig, 
@@ -104,7 +105,7 @@ C--   Default values GM/Redi
       GM_AdvForm          = .FALSE.
       GM_AdvSeparate      = .FALSE.
       GM_InMomAsStress    = .FALSE.
-      GM_isopycK          = -999.
+      GM_isopycK          = 0. _d 0
       GM_background_K     = 0. _d 0
       GM_maxSlope         = 1. _d -2
       GM_Kmin_horiz       = 0. _d 0
@@ -125,6 +126,8 @@ C--   Default values GM/Redi
       GM_isopycK3dFile    = ' '
       GM_useLeithQG       = .FALSE.
       GM_useML            = .FALSE.
+      REDI_useML          = .FALSE.
+      GM_NoParCel         = .FALSE.
       GM_MLEner           = .FALSE.
       GM_Burger           = .TRUE.
       UpVp_useML          = .FALSE.
@@ -216,8 +219,8 @@ C     Close the open data file
 #endif /* SINGLE_DISK_IO */
 
      
-      IF (GM_useML) THEN
-      IF (GM_MLEner) THEN
+
+      IF (GM_useML .AND. GM_MLEner .OR. REDI_useML) THEN
           
       OPEN(UNIT = 81,file="E_w_0.txt")
       DO i = 1,64
@@ -253,45 +256,58 @@ C      READ(81,*) (E_ML_w0(i,j),j=1,5)
       READ(86,*) E_ML_b2(1,1)
       CLOSE(86) 
      
-      ELSE   
+      ENDIF   
          
+      IF (GM_useML .AND. .NOT. GM_MLEner) THEN    
           
-      OPEN(UNIT = 101,file="w_0.txt")
+C GM_VertStrucFlag
+          
+      OPEN(UNIT = 101,file="GM_w_0.txt")
       DO i = 1,64
+C     READ(101,*) (GM_ML_w0(i,j),j=1,6)
       READ(101,*) (GM_ML_w0(i,j),j=1,4)
       ENDDO
-      CLOSE(101)
-      
-      OPEN(UNIT = 102,file="w_1.txt")
+      CLOSE(101)  
+        
+      OPEN(UNIT = 102,file="GM_w_1.txt")
       DO i = 1,32
       READ(102,*) (GM_ML_w1(i,j),j=1,64)
       ENDDO
       CLOSE(102)
       
-      OPEN(UNIT = 103,file="w_2.txt")
+      OPEN(UNIT = 103,file="GM_w_2.txt")
       READ(103,*) (GM_ML_w2(1,j),j=1,32)
       CLOSE(103)
        
-      OPEN(UNIT = 104,file="b_0.txt")
+      OPEN(UNIT = 104,file="GM_b_0.txt")
       DO i = 1,64
       READ(104,*) GM_ML_b0(i,1)
       ENDDO
       CLOSE(104)     
       
-      OPEN(UNIT = 105,file="b_1.txt")
+      OPEN(UNIT = 105,file="GM_b_1.txt")
       DO i = 1,32
       READ(105,*) GM_ML_b1(i,1)
       ENDDO
       CLOSE(105) 
       
-      OPEN(UNIT = 106,file="b_2.txt")
+      OPEN(UNIT = 106,file="GM_b_2.txt")
       READ(106,*) GM_ML_b2(1,1)
       CLOSE(106) 
+      
+C GM_VertStrucFlag
+      
+      OPEN(UNIT = 107,file="GM_normal.txt")     
+C      READ(107,*) (GM_ML_normal(1,j),j=1,7)
+      READ(107,*) (GM_ML_normal(1,j),j=1,5)
+      CLOSE(107)
+
+
       
       WRITE(msgBuf,'(A)') ' GM_ML: finished reading weights and biases'
       CALL PRINT_MESSAGE( msgBuf, standardMessageUnit,
      &                    SQUEEZE_RIGHT , 1)
-      ENDIF
+      
       ENDIF
       
       
@@ -339,7 +355,12 @@ C      READ(66,*) (E_ML_normal(1,j),j=1,6)
       CLOSE(66)
       ENDIF
        
-       
+      IF (REDI_useML) THEN
+      CALL READ_REC_XYZ_RS( 'Lw.bin', Lw, 1, 0, myThid )
+      _EXCH_XYZ_RS(Lw, myThid )
+      ENDIF
+      
+      
 C     Default value for GM_isopycK is equal to GM_background_K :
       IF (GM_isopycK.EQ.-999.) GM_isopycK = GM_background_K
 
@@ -361,7 +382,7 @@ C     Some constants
         GM_ExtraDiag = GM_isopycK.NE.GM_background_K
       ENDIF
       
-      IF (GM_useML) THEN
+      IF (GM_useML .OR. REDI_useML) THEN
                 GM_ExtraDiag = .TRUE.
       ENDIF
       

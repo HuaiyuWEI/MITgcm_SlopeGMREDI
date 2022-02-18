@@ -64,6 +64,7 @@ C     Initialize arrays in common blocks :
 #endif
 #ifdef ALLOW_GM_ML
           GM_ML_K(i,j,k,bi,bj) = 0. _d 0
+          REDI_ML_K(i,j,k,bi,bj) = 0. _d 0
           UpVp_ML(i,j,k,bi,bj) = 0. _d 0
           DupvpDy_ML(i,j,k,bi,bj) = 0. _d 0
 #endif

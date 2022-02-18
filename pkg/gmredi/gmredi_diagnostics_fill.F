@@ -59,6 +59,7 @@ C---+----1----+----2----+----3----+----4----+----5----+----6----+----7-|--+----|
          CALL DIAGNOSTICS_FILL(Kux,'GM_Kux  ',0,Nr,1,bi,bj,myThid)
          CALL DIAGNOSTICS_FILL(Kvy,'GM_Kvy  ',0,Nr,1,bi,bj,myThid)
          CALL DIAGNOSTICS_FILL(GM_ML_K,'GM_ANN  ',0,Nr,1,bi,bj,myThid)
+         CALL DIAGNOSTICS_FILL(REDI_ML_K,'REDI_ANN',0,Nr,1,bi,bj,myThid)
 C         CALL DIAGNOSTICS_FILL(UpVp_ML,'UpVp_ML ',0,Nr,1,bi,bj,myThid)
 
 #ifdef GM_EXTRA_DIAGONAL
