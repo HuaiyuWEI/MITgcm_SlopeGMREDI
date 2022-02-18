@@ -15,42 +15,84 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
   %%%%% SET-UP %%%%%
   %%%%%%%%%%%%%%%%%%
   
+  tau_x0 = 0.05*(2); %%% Wind stress magnitude
+  
+  tAlpha = 1e-4*(1); %%% Linear thermal expansion coeff
+  
+  Ws = 50*1000*(1);  %%% Slope half-width
+
+  hFacMin = 0.3;
+ 
+
+  GM_NoParCel = false;
   
   %%% Tapering scheme
   GM_taper_scheme     = 'clipping'; % clipping dm95 linear gkw91 ldd97
   %%% Maximum isopycnal slope 
-  GM_maxSlope         = 0.05; % Default:0.01  Mak18:0.005   Mak17:0.05
+  GM_maxSlope         = 0.1; % Default:0.01  Mak18:0.005  Mak17:0.05  Andrew:0.025
+ 
+  if strcmp(GM_taper_scheme,'dm95')
+  %%% DM95 critical slope
+  GM_Scrit            = GM_maxSlope;
+  %%% DM95 tapering width
+  GM_Sd               = 0.0025;
+  end
+  
+  
   % smaller values (e.g., 0.01) will destroy the simulations with continental
   % slopes for most of tapering schemes
   
   %%% Set true if initialization files are set externally
-  init_extern = false 
+  init_extern = false
   %%% Random noise amplitude, only works for   init_extern = false
   tNoise = 0;  
   
   %%% Horizontal viscosity  
-  viscAh = 0  
+  viscAh = 10;  
+  %%% Grid-dependent biharmonic viscosity
+  viscA4Grid = 0.1; 
+  %%% non-dimensional Smagorinsky biharmonic viscosity factor
+  viscC4smag = 0;
+  %%% Vertical viscosity
+  viscAr = 3e-4;     % Si22:3e-4  % 1e-4
+  %%% Vertical temp diffusion
+  diffKrT = 1e-5;    % Mak18, Si22
+   
   
   Prograde=false;
   
   GM_useML = false;
-  GM_MLEner  = false;
-  GM_background_K   = 70;
   UpVp_useML = false;
+  REDI_useML = false;
+  
+  GM_background_K   = 70;
+  GM_MLEner  = false;
+  GM_Burger  = false;
+  SmoothKgm =  false;  
+  
   SmoothUpVp = false;
-  SmoothKgm =  false;
   SmoothDUpVpDy = false;
   UpVp_ML_maxVal = 100; %means we don't limit upvp
   DUpVpDy_ML_maxVal = 1e-6;%5e-7
   UpVp_VertStruc = false;
+%   GM_VertStruc = true;
+  
   
   GM_ML_minN2 = 1.0e-8;
-  GM_ML_minVal_K = 1;
+  GM_ML_minVal_K = 0;
   GM_ML_maxVal_K = 1000;
     
   Lx = 2*1000; %%% Domain size in x 
 
-% 6 Input  
+%   if(~GM_VertStruc)
+% Bulk Kgm  
+NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_normalization';
+%   else
+% Depth-varying Kgm  
+% NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_VANNGM_fig20c\weight_bias_normalization';
+%   end
+  
+% 6 Input for E and u'v'  
  NNpath_E = 'G:\TracerScripts\Prograde\For ML\Reynolds\code_Reynolds_stress\ANN_input_output\z_input6_buoyancy1_Ld_mean_Lx_f0N0\tauQ_1_sqrt_50_9_regularization_1e_4'
  NNpath_Rey = 'G:\TracerScripts\Prograde\For ML\Reynolds\code_Reynolds_stress\ANN_input_output\z_input6_buoyancy1_Ld_mean_Lx_f0N0_stress\tauQ_1_sqrt_50_tau_xy_9_regularization_1e_4'
 
@@ -104,7 +146,9 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
   
-  simTime = 30*t1year; % %%% Simulation time  
+  simTime = 30*t1year + 1*t1day; % %%% Simulation time  
+  diag_phase_avg = 100*t1year;    
+  
   nIter0 = 0; %%% Initial iteration 
   Ly = 500*m1km; %%% Domain size in y  
 %   Ly = 800*m1km; %%% Domain size in y 
@@ -118,16 +162,12 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
   
 
   viscA4 = 0; %%% Biharmonic viscosity
-  viscAhGrid = 0; %%% Grid-dependent viscosity
-  viscA4Grid = 0.1; %%% Grid-dependent biharmonic viscosity
-  viscAr = 0; %%% Vertical viscosity
+  viscAhGrid = 0; %%% Grid-dependent harmonic viscosity
   diffKhT = 0; %%% Horizontal temp diffusion
-  diffKrT = 0; %%% Vertical temp diffusion   
+
   
-  tAlpha = 1e-4*(1.0); %%% Linear thermal expansion coeff
   
   %%% Topographic parameters
-  Ws = 50*m1km*(1); %%% Slope half-width
   Zs = 2250;% %%% Vertical slope position
 %   Zs = 4000; %%% Vertical slope position flatbottomed
   Hs = 3500;%; %%% Shelf height
@@ -143,7 +183,7 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
   neg_delta = 0;
   mintemp = 0;
   maxtemp = 10;
-  tau_x0 = 0.05*(1);
+  
   
 
   %%% Parameters related to periodic wind forcing
@@ -174,7 +214,8 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
   parm01.addParm('viscC4leith',0,PARM_REAL);
   parm01.addParm('viscC4leithD',0,PARM_REAL); 
   parm01.addParm('viscC2leith',0,PARM_REAL);
-  parm01.addParm('viscC2leithD',0,PARM_REAL);  
+  parm01.addParm('viscC2leithD',0,PARM_REAL); 
+  parm01.addParm('viscC4smag',viscC4smag,PARM_REAL);  
   %%% diffusivity
   parm01.addParm('tempAdvScheme',80,PARM_INT);
   parm01.addParm('saltAdvScheme',80,PARM_INT);
@@ -209,7 +250,7 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
   %%% C-V scheme for Coriolis term
   parm01.addParm('useCDscheme',false,PARM_BOOL);
   %%% partial cells for smooth topography
-  parm01.addParm('hFacMin',0.1,PARM_REAL);  
+  parm01.addParm('hFacMin',hFacMin,PARM_REAL);  
   %%% file IO stuff
   parm01.addParm('readBinaryPrec',64,PARM_INT);
   parm01.addParm('useSingleCpuIO',true,PARM_BOOL);
@@ -991,13 +1032,18 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
   gmredi_parm01.addParm('GM_background_K',GM_background_K,PARM_REAL);
   gmredi_parm01.addParm('GM_maxSlope',GM_maxSlope,PARM_REAL);
   gmredi_parm01.addParm('GM_taper_scheme',GM_taper_scheme,PARM_STR);
-%   gmredi_parm01.addParm('GM_Scrit',GM_Scrit,PARM_REAL);
-%   gmredi_parm01.addParm('GM_Sd',GM_Sd,PARM_REAL);
-
+  
+  if strcmp(GM_taper_scheme,'dm95')
+  gmredi_parm01.addParm('GM_Scrit',GM_Scrit,PARM_REAL);
+  gmredi_parm01.addParm('GM_Sd',GM_Sd,PARM_REAL);
+  end
   %%% Add NN parameters 
   gmredi_parm01.addParm('Prograde',Prograde,PARM_BOOL);
   gmredi_parm01.addParm('GM_useML',GM_useML,PARM_BOOL);
+  gmredi_parm01.addParm('GM_NoParCel',GM_NoParCel,PARM_BOOL);
+  gmredi_parm01.addParm('REDI_useML',REDI_useML,PARM_BOOL);
   gmredi_parm01.addParm('GM_MLEner',GM_MLEner,PARM_BOOL);
+   gmredi_parm01.addParm('GM_Burger',GM_Burger,PARM_BOOL);
   gmredi_parm01.addParm('GM_ML_minN2',GM_ML_minN2,PARM_REAL);
   gmredi_parm01.addParm('GM_ML_minVal_K',GM_ML_minVal_K,PARM_REAL);
   gmredi_parm01.addParm('GM_ML_maxVal_K',GM_ML_maxVal_K,PARM_REAL);
@@ -1008,18 +1054,19 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
     gmredi_parm01.addParm('UpVp_ML_maxVal',UpVp_ML_maxVal,PARM_REAL);
     gmredi_parm01.addParm('DUpVpDy_ML_maxVal',DUpVpDy_ML_maxVal,PARM_REAL);
     gmredi_parm01.addParm('UpVp_VertStruc',UpVp_VertStruc,PARM_BOOL);
+%     gmredi_parm01.addParm('GM_VertStruc',GM_VertStruc,PARM_BOOL);
     gmredi_parm01.addParm('SmoothDUpVpDy',SmoothDUpVpDy,PARM_BOOL);
     gmredi_parm01.addParm('SmoothKgm',SmoothKgm,PARM_BOOL);
     
 if(GM_useML)
   if(~GM_MLEner)  
-NNpath_GM = 'G:\TracerScripts\Prograde\For ML\matlab_input_xie\new\weight_and_bias_normal_regularization_1e_4'
- copyfile(strcat(NNpath_GM,'\w_0.txt'),fullfile(inputpath));
- copyfile(strcat(NNpath_GM,'\w_1.txt'),fullfile(inputpath));
- copyfile(strcat(NNpath_GM,'\w_2.txt'),fullfile(inputpath));
- copyfile(strcat(NNpath_GM,'\b_0.txt'),fullfile(inputpath));
- copyfile(strcat(NNpath_GM,'\b_1.txt'),fullfile(inputpath));
- copyfile(strcat(NNpath_GM,'\b_2.txt'),fullfile(inputpath));  
+ copyfile(strcat(NNpath_GM,'\GM_w_0.txt'),fullfile(inputpath));
+ copyfile(strcat(NNpath_GM,'\GM_w_1.txt'),fullfile(inputpath));
+ copyfile(strcat(NNpath_GM,'\GM_w_2.txt'),fullfile(inputpath));
+ copyfile(strcat(NNpath_GM,'\GM_b_0.txt'),fullfile(inputpath));
+ copyfile(strcat(NNpath_GM,'\GM_b_1.txt'),fullfile(inputpath));
+ copyfile(strcat(NNpath_GM,'\GM_b_2.txt'),fullfile(inputpath));  
+ copyfile(strcat(NNpath_GM,'\GM_normal.txt'),fullfile(inputpath));  
   else
  copyfile(strcat(NNpath_E,' \E_w_0.txt'),fullfile(inputpath));
  copyfile(strcat(NNpath_E,'\E_w_1.txt'),fullfile(inputpath));
@@ -1047,11 +1094,59 @@ end
  
  
  
+ 
+   if(REDI_useML)
+% calculate Lw and store it as an input
+
+
+%%% Lw
+SouthWallpos = zeros(1,Nr);
+for i = 1:Nr
+ pos =   find(zz(i)>h,1,'first');     
+ SouthWallpos(i) = yy(pos)-dy(1)/2;
+end
+[YYY, ~, ~] = meshgrid(yy, xx, zz);
+
+SouthWallpos = repmat(reshape(SouthWallpos,[1,1,Nr]),[Nx,Ny,1]);
+Lw = (YYY-SouthWallpos)./pi;
+NorthWallpos = yy(Ny-1)+dy(1)/2;
+Lw = min((NorthWallpos-YYY)./pi,Lw);
+Lw(Lw<0)=0
+
+    if (showplots)
+    figure(fignum);
+    fignum = fignum + 1;
+    clf;
+    [ZZ,YY]=meshgrid(zz,yy);
+    pcolor(YY,ZZ,squeeze(mean(Lw,1)));
+    shading flat
+    colorbar;
+    xlabel('y');
+    ylabel('z');
+    title('Lw');
+    end  
+  
+    
+% fid=fopen([fullfile(inputpath) '\Lw.txt'],'wt');
+%   for j=1:Ny
+%     for k=1:Nr
+%      fprintf(fid,'%d ',Lw(j,k));
+%     end
+%      fprintf(fid,'\n');
+%   end
+% fclose(fid); 
+    
+  writeDataset(Lw,fullfile(inputpath,'Lw.bin'),ieee,prec); 
+ 
+   end  
+   
+   
+   
    copyfile('G:\OtherModels\gmredi_ML\Model\src\Modified\calc_eddy_stress.F',fullfile(codepath));  
    copyfile('G:\OtherModels\gmredi_ML\Modified\gmredi_calc_ML.F',fullfile(codepath));  
    copyfile('G:\OtherModels\gmredi_ML\Modified\GMREDI.h',fullfile(codepath));  
    copyfile('G:\OtherModels\gmredi_ML\Modified\gmredi_readparms.F',fullfile(codepath));  
-
+   copyfile('G:\OtherModels\gmredi_ML\Modified\gmredi_calc_tensor.F',fullfile(codepath));
  
  
  
@@ -1100,13 +1195,12 @@ end
     'THETA','THETASQ', ... %%% Temperature
     'SALT','SALTSQ', ... %%% Salinity
     'PHIHYD', ... %%% Pressure
-    'LaUH1TH','LaVH1TH','LaHw1TH','LaHs1TH' ... %%% LAYERS fluxes
     'UUU_VEL', 'UVV_VEL', 'UWW_VEL', ...
     'VUU_VEL', 'VVV_VEL', 'VWW_VEL', ...
     'WUU_VEL', 'WVV_VEL', 'WWW_VEL', ...
     'UVELPHI', 'VVELPHI', 'WVELPHI', 'MXLDEPTH', ...
     'momKE', 'momHDiv', 'momVort3', ...          %%% momentum diagnostics
-    'UBotDrag', 'VBotDrag', 'USidDrag', 'VSidDrag', ...
+    'botTauX','botTauY', 'USidDrag', 'VSidDrag', ...
     'Um_Diss', 'Vm_Diss', 'Um_Advec', 'Vm_Advec', ...
     'Um_Cori', 'Vm_Cori', 'Um_Ext', 'Vm_Ext', ...
     'Um_AdvZ3', 'Vm_AdvZ3', 'Um_AdvRe', 'Vm_AdvRe', ...
@@ -1115,7 +1209,7 @@ end
     'VISrE_Um', 'VISrI_Um', 'VISCx_Vm', 'VISCy_Vm', ...
     'VISrE_Vm', 'VISrI_Vm'
   };
-diag_fields_avg = {}; %...
+% diag_fields_avg = {}; %...
 %   {'UUU_VEL', 'UVV_VEL', 'UWW_VEL', ...
 %     'VUU_VEL', 'VVV_VEL', 'VWW_VEL', ...
 %     'WUU_VEL', 'WVV_VEL', 'WWW_VEL', ...
@@ -1124,7 +1218,7 @@ diag_fields_avg = {}; %...
   numdiags_avg = length(diag_fields_avg);  
   diag_freq_avg = 5*t1year;
 %  diag_freq_avg = 5*t1year;
-  diag_phase_avg = 0;    
+
      
   diag_parm01.addParm('diag_mnc',false,PARM_BOOL);  
   for n=1:numdiags_avg    
@@ -1142,24 +1236,24 @@ diag_fields_avg = {}; %...
     
   end
 
-%   diag_fields_inst = ...
-%  {...
-%    'UVEL','VVEL', 'THETA', ...
-%    'GM_ANN', ...
-%    'UpVp_ML','DupvpDy','DupvpDy2', ...
-%    'ReANN_I1','ReANN_I2','ReANN_I3', ...   
-%    'EKEANNI1','EKEANNI2','EKEANNI3', 'EKEANNI4'...
-%   };
-
   diag_fields_inst = ...
  {...
-   'UVEL','VVEL', 'THETA', ...
+   'UVEL','VVEL','WVEL','THETA', ...
+   'GM_ANN',...
+   'UpVp_ML','DupvpDy','DupvpDy2', ...
+   'ReANN_I1','ReANN_I2','ReANN_I3', ...   
+   'EKEANNI1','EKEANNI2','EKEANNI3', 'EKEANNI4',...
+  };
+%    'REDI_K0','REDI_A','REDI_S', 'REDI_C', 'Sdelta','REDI_ANN',...   
+  diag_fields_inst = ...
+ {...
+   'UVEL','VVEL','WVEL','THETA', ...
   };
 
 
 
   numdiags_inst = length(diag_fields_inst);  
-  diag_freq_inst = 1*t1year;
+  diag_freq_inst = .1*t1year;
 %   diag_freq_inst = 1310;
 %   diag_freq_inst = 1*t1day;
   diag_phase_inst = 0;
