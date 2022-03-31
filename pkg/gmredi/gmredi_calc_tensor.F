@@ -1017,6 +1017,9 @@ C     Calculate slopes for use in tensor, taper and/or clip
      I             kLow_S,
      I             k, bi, bj, myTime, myIter, myThid )
 
+#ifdef ALLOW_DIAGNOSTICS       
+      CALL DIAGNOSTICS_FILL(SlopeY, 'SlopeY  ', k,1,2,bi,bj,myThid)     
+#endif /* ALLOW_DIAGNOSTICS */
 #ifdef ALLOW_AUTODIFF_TAMC
 CADJ STORE taperFct(:,:)       = comlev1_bibj_k, key=kkey, byte=isbyte
 #endif /* ALLOW_AUTODIFF_TAMC */

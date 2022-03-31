@@ -729,6 +729,15 @@ c     IF ( useDiagnotics ) THEN
      I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
 #endif
 
+      diagName  = 'SlopeY  '
+      diagTitle = 'isopycnal slope in Y direction'
+      diagUnits = 'none            '
+      diagCode  = 'VV      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I    diagName, diagCode, diagUnits, diagTitle, 0, myThid )
+        
+        
+        
 c     ENDIF
 # ifdef ALLOW_AUTODIFF
       diagName  = 'ADJkapgm'

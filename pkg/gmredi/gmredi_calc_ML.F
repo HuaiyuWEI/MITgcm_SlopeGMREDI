@@ -173,17 +173,15 @@ C    Zonal velocity at cell center
 
       
       
-C    Water depth at cell center
 C    Find the water depth at cell center (positive)
-C    R_low_orig is defined by ignoring hFacMin constrain,
-C    which can give us a much smoother dHdy
+C    R_low_orig is defined by ignoring hFacMin constraint,
+C    which can give us a much smoother dHdy field
 C    Notice that this H cannot be used in depth-avg calculations.
       DO j=1-Oly,sNy+Oly
        DO i=1-Olx,sNx+Olx
           H(i,j) = -R_low_orig(i,j,bi,bj)
        ENDDO
       ENDDO
-
       
       
 C    Bathymetric slope at cell center
@@ -202,8 +200,10 @@ C    H used here is positive
 C     Topographic beta at cell center   
       DO j=1-Oly+1,sNy+Oly-1
        DO i=1-Olx,sNx+Olx
-           IF ( H(i,j).NE. 0.0 _d 0 ) THEN
+          IF ( H(i,j).NE. 0.0 _d 0 ) THEN
           Beta_t(i,j) = abs(fCori(i,j,bi,bj)/H(i,j)*dHdy(i,j))
+          ELSE
+          Beta_t(i,j) = 0.0 _d 0
           ENDIF
        ENDDO
       ENDDO      
@@ -211,7 +211,8 @@ C     Topographic beta at cell center
       
       
 C     Square of the buoyancy frequency at the top of a grid cell
-C     Enforce a minimum N2
+C     Enforce a minimum N2; Mask N2, so it is zero at bottom
+C     Calculation of N2 and N follows gmredi_k3d.F
       DO k=2,Nr
        DO j=1-Oly,sNy+Oly
         DO i=1-Olx,sNx+Olx
@@ -242,18 +243,22 @@ C     Integrate the buoyancy frequency vertically
        ENDDO
       ENDDO    
       
-C       Calculate the Rossby deformation Radius
+C       Calculate the WKB Rossby deformation Radius
+C       Doesn't apply to equatorial region
         DO j=1-Oly,sNy+Oly
          DO i=1-Olx,sNx+Olx
           IF ( fCori(i,j,bi,bj).NE. 0.0 _d 0 ) THEN
           Ld(i,j)  = BVint(i,j)/fCori(i,j,bi,bj)/pi
+           ELSE
+          Ld(i,j)  = 0.0 _d 0
           ENDIF
          ENDDO
       ENDDO
+ 
       
-C       Calculate depth-mean buoyancy frequency
+C     Calculate depth-mean buoyancy frequency
       DO j=1-Oly,sNy+Oly
-       DO i=1-Olx,sNx+Olx-1
+       DO i=1-Olx,sNx+Olx
         IF (r_Low(i,j,bi,bj).NE. 0.0 _d 0) THEN
 C         The minus sign is because r_Low<0
           BVzavg(i,j) = -BVint(i,j)/r_Low(i,j,bi,bj)
@@ -262,7 +267,8 @@ C         The minus sign is because r_Low<0
         ENDIF
        ENDDO
        ENDDO      
-          
+   
+       
 C     Calculate depth-mean along-shore velocity
 C     Calculate the barotropic velocity by vertically integrating
 C     and then dividing by the depth of the water column
@@ -289,14 +295,16 @@ C         The minus sign is because r_Low<0
        
       
 C     ----------   Reynolds stress part begins    ------------
-      IF ( UpVp_useML .OR.  GM_MLEner) THEN
+      IF ( UpVp_useML .OR.  GM_MLEner  .OR. REDI_useML) THEN
+C     Prepare Input data for the trained Back-propagation 
+C     Neural Network which is used to predict EKE or UpVp         
           
-C     Input01: 3D Meridional gradient of zonal velocity
+C     Input01: 3D Meridional (offhsore) gradient of zonal velocity
 C     DuDy is located at cell center          
       DO k=1,Nr
        DO j=1-OLy+1,sNy+OLy-1
         DO i=1-OLx,sNx+OLx-1
-        Uy_temp(i,j,k)=op5*(MaskS(i,j,k,bi,bj)
+        Uy_temp(i,j,k)=op5*(MaskS(i,j,k,bi,bj)       
      &        *_recip_dyC(i,j,bi,bj)
      &        *(uFld_C(i,j,k)-uFld_C(i,j-1,k))
      &         +MaskS(i,j+1,k,bi,bj)
@@ -333,8 +341,10 @@ C      ElSE
       
 C      ENDIF      
 
+      
 C     Input02: 3D Vertical gradient of zonal velocity
 C     DuDz is located at cell center
+C     Follows the calculation of dTdz in gmredi_ytransport.F
 C     CHECK if recip_hFacC is needed      
       DO k=1,Nr
        kp1 = min(k+1,Nr)
@@ -402,6 +412,8 @@ C      ENDIF
 C     Input03: Bulk isopycnal slope at cell centers
       
 C     Integrate Tx and Ty vertically   
+C     sigmaX and sigmaY locate at U and V points respectively
+C     dSigmaDxZint and dSigmaDyZint locate at cell center     
       DO k=1,Nr
        DO j=1-Oly,sNy+Oly-1
         DO i=1-Olx,sNx+Olx-1
@@ -413,9 +425,8 @@ C     Integrate Tx and Ty vertically
      &        ( sigmaY(i,j,k) + sigmaY(i,j+1,k) )
         ENDDO
        ENDDO
-      ENDDO
-      
-C     Integrate Tz vertically
+      ENDDO   
+C     Integrate Tz vertically, same as BVint
       DO k=1,Nr
        kp1 = min(k+1,Nr)
        DO j=1-Oly,sNy+Oly
@@ -431,13 +442,17 @@ C     Compute bulk isopycnal slope
         DO j=1-Oly,sNy+Oly-1
          DO i=1-Olx,sNx+Olx-1
           IF ( dSigmaDrZint(i,j).NE. 0.0 _d 0 ) THEN  
+              
+C  Siso = -sign(dSigmaDyZint)(dSigmaDyZint^2+dSigmaDxZint^2)/dSigmaDrZint
 C  Assume dSigmaDrZint is negative
           temp_2D(i,j)=  dSigmaDyZint(i,j)/abs(dSigmaDyZint(i,j))
      &                *sqrt(dSigmaDxZint(i,j)**2+dSigmaDyZint(i,j)**2)
      &                 /abs(dSigmaDrZint(i,j))
+          ELSE
+          temp_2D(i,j) = 0.0 _d 0         
           ENDIF
          ENDDO
-        ENDDO    
+        ENDDO     
         
 C      IF ( SmoothSiso ) THEN      
 C      DO j=1-Oly+1,sNy+Oly-2
@@ -471,11 +486,19 @@ C     Diagnostics
       ENDIF
 #endif
 
-      ENDIF
 
-        
-       IF ( UpVp_useML) THEN
-C    Predict Reynolds stress over continental slope
+
+C     END IF for IF ( UpVp_useML .OR.  GM_MLEner .OR. REDI_useML)
+      ENDIF
+ 
+      
+      
+      
+      
+      IF ( UpVp_useML) THEN
+C    Predict Reynolds stress (UpVp) over continental slope by
+C    trained Back-propagation Neural Network
+
       DO k=1,Nr
        DO j=1-Oly+1,sNy+Oly-1
         DO i=1-Olx,sNx+Olx-1
@@ -496,10 +519,10 @@ C InputFlag
              UpVp_ML_temp(i,j,k) = ML2_UpVp(1,1)/abs(ML2_UpVp(1,1))
      &                           *abs(ML2_UpVp(1,1)*E_ML_normal(1,7))**2
 C            Enforce lower and upper bounds 
-             UpVp_ML(i,j,k,bi,bj) = 
-     &                      MIN(UpVp_ML(i,j,k,bi,bj),UpVp_ML_maxVal)
-             UpVp_ML(i,j,k,bi,bj) = 
-     &                      MAX(UpVp_ML(i,j,k,bi,bj),-UpVp_ML_maxVal)
+             UpVp_ML_temp(i,j,k) = 
+     &                      MIN(UpVp_ML_temp(i,j,k),UpVp_ML_maxVal)
+             UpVp_ML_temp(i,j,k) = 
+     &                      MAX(UpVp_ML_temp(i,j,k),-UpVp_ML_maxVal)
            ENDIF
         ENDDO
        ENDDO
@@ -511,6 +534,7 @@ C            Enforce lower and upper bounds
       DO j=1-OLy+3,sNy+OLy-3
        DO i=1-OLx,sNx+OLx-1        
 C     Smooth UpVp horizontally
+C     5-point running smooth      
           UpVp_ML(i,j,k,bi,bj) = ( UpVp_ML_temp(i,j,k)*1. _d 0
      &               + UpVp_ML_temp(i,j-1,k)*maskC(i,j-1,k,bi,bj)
      &               + UpVp_ML_temp(i,j+1,k)*maskC(i,j+1,k,bi,bj)
@@ -525,15 +549,14 @@ C     Smooth UpVp horizontally
           ENDDO
        ENDDO 
       ENDDO 
-C  Change surface u'v' to zero
+C  Artificially set surface u'v' to zero
       DO k=1,2
       DO j=1-OLy+3,sNy+OLy-3
        DO i=1-OLx,sNx+OLx-1    
           UpVp_ML(i,j,k,bi,bj) = 0.0 _d 0
         ENDDO
       ENDDO    
-      ENDDO
-      
+      ENDDO    
       
       ELSE
           
@@ -544,7 +567,7 @@ C  Change surface u'v' to zero
         ENDDO
       ENDDO   
       ENDDO
-C  Change surface u'v' to zero
+C  Artificially set surface u'v' to zero
       DO k=1,2
       DO j=1-OLy+1,sNy+OLy-1
        DO i=1-OLx,sNx+OLx-1    
@@ -552,23 +575,18 @@ C  Change surface u'v' to zero
         ENDDO
       ENDDO     
       ENDDO
-      
+     
       ENDIF       
       
-      
- 
-
- 
-      
-      
-       
-       
+        
 
 C   ENDIF for IF ( UpVp_useML )
       ENDIF
       
       
       
+       
+       
       
 C     ----------      Kgm part     ------------
    
@@ -591,16 +609,21 @@ C    both Energy-kgm scheme and Kgm-ANN scheme
        DO i=1-Olx,sNx+Olx
         IF (fCori(i,j,bi,bj).NE. 0.0 _d 0) THEN
         SBurger(i,j) = BVzavg(i,j)/fCori(i,j,bi,bj)*abs(dHdy(i,j))
+        ELSE
+        SBurger(i,j) =  0.0 _d 0  
         ENDIF
        ENDDO
       ENDDO
       
       ENDIF       
       
-      IF ( GM_useML .AND. GM_MLEner .OR. REDI_useML) THEN
-C    Energy-kgm scheme begin  
-C    Predict EKE or E over continental slope
-C    which is later used to infer Kgm via traditional scalings      
+      IF ( (GM_useML .AND. GM_MLEner) .OR. REDI_useML) THEN
+C    Energy-kgm scheme begins  
+
+C    Predict depth-varying EKE or E over continental slope
+C    by trained Back-propagation Neural Network. 
+C    EKE or E is later used to infer Kgm via traditional scalings     
+
       DO k=1,Nr
        DO j=1-Oly+1,sNy+Oly-1
         DO i=1-Olx,sNx+Olx-1
@@ -620,11 +643,13 @@ C InputFlag
 C InputFlag   
              E_ML(i,j,k) =    op5 *ML2_E(1,1)/abs(ML2_E(1,1))
      &                            *abs(ML2_E(1,1)*E_ML_normal(1,7))**2 
+C     No bound is set for the predicted value of E             
            ENDIF
         ENDDO
        ENDDO
       ENDDO
 
+        
 C  Deal with extrem values in E_ML   
 C      DO k=1,Nr
 C       DO j=1-Oly+3,sNy+Oly-3
@@ -649,7 +674,9 @@ C        ENDIF
 C        ENDDO
 C       ENDDO
 C      ENDDO
-      
+        
+        
+C    Calculate depth-averaged EKE or E, and Ue
       DO k=1,Nr
        DO j=1-Oly+1,sNy+Oly-1
         DO i=1-Olx,sNx+Olx-1
@@ -673,10 +700,9 @@ C         The minus sign is because r_Low<0
        ENDIF
        
       IF(GM_useML .AND. GM_MLEner .AND. Prograde) THEN
-C Scalings for Kgm in prograde flows              
-          
+C Traditional scalings for Kgm in prograde flows                       
 
-C     Compute bulk Richardson number
+C     Compute bulk Richardson number (positive definite)
         DO j=1-Oly,sNy+Oly-1
          DO i=1-Olx,sNx+Olx-1
           IF ( dSigmaDrZint(i,j).NE. 0.0 _d 0 ) THEN  
@@ -684,6 +710,8 @@ C     Compute bulk Richardson number
      &              *abs(dSigmaDrZint(i,j)
      &              /(dSigmaDxZint(i,j)**2+dSigmaDyZint(i,j)**2
      &               *gravity*recip_rhoConst)) 
+          ELSE
+          temp_2D(i,j) = 0.0 _d 0
           ENDIF
          ENDDO
         ENDDO    
@@ -710,8 +738,7 @@ C      ELSE
 C      ENDIF
       
       
-C     Compute Kgm
-      
+C     Compute Kgm using slope-aware GEOMETRIC      
        DO k=1,Nr
        DO j=1-Oly+1,sNy+Oly-1
         DO i=1-Olx,sNx+Olx-1   
@@ -729,7 +756,7 @@ C            Enforce lower and upper bounds on the diffusivity
            
           
       ELSEIF(GM_useML .AND. GM_MLEner .AND. .NOT. Prograde) THEN
-C Scalings for Kgm in retrograde flows     
+C Traditional scalings for Kgm in retrograde flows     
           
       DO j=1-Oly+1,sNy+Oly-1
        DO i=1-Olx,sNx+Olx-1
@@ -742,7 +769,8 @@ C Scalings for Kgm in retrograde flows
        ENDDO     
                    
        IF(GM_Burger) THEN  
-C  Use empirical function of Burger number to constrain Kgm       
+C  Compute Kgm using slope-aware mixing length theory (Burger number)
+ 
       DO j=1-Oly+1,sNy+Oly-1
        DO i=1-Olx,sNx+Olx-1
         IF (H(i,j) .LT. 2.25 _d 3) THEN
@@ -768,15 +796,18 @@ C            Enforce lower and upper bounds on the diffusivity
            ENDDO
        ENDDO
        ENDDO   
+  
        
       ELSE
-C  Use empirical function of slope parameter to constrain Kgm 
+C  Compute Kgm using slope-aware mixing length theory (Slope parameter)
 
 C     Compute slope parameter
-        DO j=1-Oly,sNy+Oly-1
+        DO j=1-Oly+1,sNy+Oly-1
          DO i=1-Olx,sNx+Olx-1
           IF ( Siso(i,j) .NE. 0.0 _d 0 ) THEN  
-          delta(i,j)= dHdy(i,j)/Siso(i,j)
+          delta(i,j) = dHdy(i,j)/Siso(i,j)
+          ELSE
+          delta(i,j) = 0.0 _d 0
           ENDIF
          ENDDO
         ENDDO    
@@ -833,7 +864,7 @@ C     Diagnostics
        
  
 
-C    Use Neural Network to predict Kgm directly 
+C   Use trained Back-propagation Neural Network to predict Kgm directly 
       IF (GM_useML .AND. .NOT. GM_MLEner) THEN
 C GM_VertStrucFlag
 CC    Calulate Depth-varying form of Kgm
@@ -933,13 +964,14 @@ C     Diagnostics
            ENDDO
           ENDDO 
        ENDIF
-       ENDIF
-       
+       ENDIF    
   
 C     ----------    Kgm part ends    ------------
 
 
-C     ----------      Kredi part     ------------
+  
+  
+C     ----------   Kredi part begins  ------------
    
       IF ( .NOT. REDI_useML ) THEN
       
@@ -966,10 +998,7 @@ C     Compute slope parameter, and exclude negative values
          ENDDO
         ENDDO 
   
-C     Compute the distance to the lateral boundary
-     
-
-        
+C     Compute the parameterized eddy phase speed
          
          DO j=1-Oly+1,sNy+Oly-1
           DO i=1-Olx,sNx+Olx-1                       

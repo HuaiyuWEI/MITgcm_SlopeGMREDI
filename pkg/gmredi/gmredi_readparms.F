@@ -347,7 +347,7 @@ C      READ(51,*) (UpVp_ML_w0(i,j),j=1,5)
       CLOSE(56) 
       ENDIF
       
-      IF (UpVp_useML .OR. GM_MLEner) THEN
+      IF (UpVp_useML .OR. GM_MLEner .OR. REDI_useML) THEN
       OPEN(UNIT = 66,file="E_normal.txt")
 C InputFlag       
       READ(66,*) (E_ML_normal(1,j),j=1,7)
