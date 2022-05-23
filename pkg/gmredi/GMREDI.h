@@ -51,6 +51,8 @@ C     GM_useLeithQG    :: add Leith QG viscosity to GMRedi tensor
       LOGICAL SmoothUpVp
       LOGICAL SmoothKgm
       LOGICAL SmoothDUpVpDy
+      LOGICAL SmoothEner
+      LOGICAL LeftReplacement
       LOGICAL Prograde
       COMMON /GM_PARAMS_L/
      &                   GM_AdvForm, GM_AdvSeparate,
@@ -62,8 +64,8 @@ C     GM_useLeithQG    :: add Leith QG viscosity to GMRedi tensor
      &                   GM_K3D_surfK, GM_K3D_constRedi, GM_useLeithQG,
      &                   GM_useML, REDI_useML, GM_MLEner, GM_Burger,
      &                   GM_NoParCel, UpVp_useML, UpVp_VertStruc,
-     &                   Prograde, SmoothDUpVpDy,
-     &                   SmoothUpVp, SmoothKgm
+     &                   Prograde, SmoothDUpVpDy, LeftReplacement,
+     &                   SmoothUpVp, SmoothKgm, SmoothEner
 
 C--   GM/Redi Integer-type parameters
 C     GM_BVP_modeNumber :: vertical mode number used for speed "c" in BVP transport

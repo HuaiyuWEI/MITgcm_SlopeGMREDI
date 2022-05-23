@@ -320,13 +320,16 @@ C# endif
       CALL GMREDI_CALC_ML(
      I                sigmaX,sigmaY,sigmaR,
      I                bi, bj, myTime, myIter, myThid )
+      
+      
+      CALL EXCH_XYZ_RL(GM_ML_K, myThid)
     
-      IF ( GM_useML) THEN
-          joverlap = 2
+C      IF ( GM_useML) THEN
+C          joverlap = 2
 C         check     
-      ELSE
+C      ELSE
           joverlap = 1
-      ENDIF
+C      ENDIF
       
 #endif /* ALLOW_GM_ML */
 

@@ -69,6 +69,7 @@ C     Beta_t   :: Topographic beta     f/H*H_y
       _RL Uz_temp1(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr) 
       _RL Uz_temp2(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr) 
       _RL E_ML(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
+      _RL E_ML_temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
       _RL UpVp_ML_temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
       _RL GM_ML_temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
       _RL Kappa0(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
@@ -88,6 +89,7 @@ C     Beta_t   :: Topographic beta     f/H*H_y
       _RL Lrhines(1-OLx:sNx+OLx,1-OLy:sNy+OLy)      
       _RL Lmix(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
       _RL Uzavg(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
+      _RL Usqzavg(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL H(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL dHdy(1-Olx:sNx+Olx,1-Oly:sNy+Oly)  
       _RL SBurger(1-Olx:sNx+Olx,1-Oly:sNy+Oly) 
@@ -148,6 +150,7 @@ C     Zeroing some cumulative fields
        DO i=1-Olx,sNx+Olx
         BVint(i,j)  = 0.0 _d 0
         Uzavg(i,j)  = 0.0 _d 0
+        Usqzavg(i,j)  = 0.0 _d 0
         E_ML_zavg(i,j)  = 0.0 _d 0
         dHdy(i,j)  = 0.0 _d 0
         dSigmaDxZint(i,j)  = 0.0 _d 0
@@ -278,6 +281,8 @@ C     Note that Uzavg is at the Cell certer.
         DO i=1-Olx,sNx+Olx-1
             Uzavg(i,j) = Uzavg(i,j) + 
      &               drF(k)*hfacC(i,j,k,bi,bj)*uFld_C(i,j,k)      
+            Usqzavg(i,j) = Usqzavg(i,j) + 
+     &            drF(k)*hfacC(i,j,k,bi,bj)*uFld_C(i,j,k)*uFld_C(i,j,k)
         ENDDO
        ENDDO
       ENDDO
@@ -286,8 +291,10 @@ C     Note that Uzavg is at the Cell certer.
         IF (r_Low(i,j,bi,bj).NE. 0.0 _d 0) THEN
 C         The minus sign is because r_Low<0
           Uzavg(i,j) = -Uzavg(i,j)/r_Low(i,j,bi,bj)
+          Usqzavg(i,j) = -Usqzavg(i,j)/r_Low(i,j,bi,bj)
           ELSE
           Uzavg(i,j) = 0.0 _d 0
+          Usqzavg(i,j) = 0.0 _d 0
         ENDIF
        ENDDO
        ENDDO
@@ -530,7 +537,7 @@ C            Enforce lower and upper bounds
        
        
       IF ( SmoothUpVp ) THEN 
-      DO k=3,Nr
+      DO k=1,Nr
       DO j=1-OLy+3,sNy+OLy-3
        DO i=1-OLx,sNx+OLx-1        
 C     Smooth UpVp horizontally
@@ -550,17 +557,17 @@ C     5-point running smooth
        ENDDO 
       ENDDO 
 C  Artificially set surface u'v' to zero
-      DO k=1,2
-      DO j=1-OLy+3,sNy+OLy-3
-       DO i=1-OLx,sNx+OLx-1    
-          UpVp_ML(i,j,k,bi,bj) = 0.0 _d 0
-        ENDDO
-      ENDDO    
-      ENDDO    
+C      DO k=1,2
+C      DO j=1-OLy+3,sNy+OLy-3
+C       DO i=1-OLx,sNx+OLx-1    
+C          UpVp_ML(i,j,k,bi,bj) = 0.0 _d 0
+C        ENDDO
+C      ENDDO    
+C      ENDDO    
       
       ELSE
           
-      DO k=3,Nr
+      DO k=1,Nr
       DO j=1-OLy+1,sNy+OLy-1
        DO i=1-OLx,sNx+OLx-1    
           UpVp_ML(i,j,k,bi,bj) = UpVp_ML_temp(i,j,k)
@@ -568,13 +575,13 @@ C  Artificially set surface u'v' to zero
       ENDDO   
       ENDDO
 C  Artificially set surface u'v' to zero
-      DO k=1,2
-      DO j=1-OLy+1,sNy+OLy-1
-       DO i=1-OLx,sNx+OLx-1    
-          UpVp_ML(i,j,k,bi,bj) = 0.0 _d 0
-        ENDDO
-      ENDDO     
-      ENDDO
+C      DO k=1,2
+C      DO j=1-OLy+1,sNy+OLy-1
+C       DO i=1-OLx,sNx+OLx-1    
+C          UpVp_ML(i,j,k,bi,bj) = 0.0 _d 0
+C        ENDDO
+C      ENDDO     
+C      ENDDO
      
       ENDIF       
       
@@ -641,7 +648,7 @@ C InputFlag
              ML1_E = ((1.+0.2)*ML1_E+(1.0-0.2)*abs(ML1_E))/2.0
              ML2_E(1:1,1:1) = matmul(E_ML_w2,ML1_E) + E_ML_b2 
 C InputFlag   
-             E_ML(i,j,k) =    op5 *ML2_E(1,1)/abs(ML2_E(1,1))
+             E_ML_temp(i,j,k) =    op5 *ML2_E(1,1)/abs(ML2_E(1,1))
      &                            *abs(ML2_E(1,1)*E_ML_normal(1,7))**2 
 C     No bound is set for the predicted value of E             
            ENDIF
@@ -675,10 +682,55 @@ C        ENDDO
 C       ENDDO
 C      ENDDO
         
+
+
+        
+        
+      IF (SmoothEner)  THEN
+      DO k=1,Nr
+      DO j=1-OLy+3,sNy+OLy-3
+       DO i=1-OLx,sNx+OLx-1        
+C     Smooth UpVp horizontally
+C     5-point running smooth      
+          E_ML(i,j,k) = ( E_ML_temp(i,j,k)*1. _d 0
+     &                  + E_ML_temp(i,j-1,k)*maskC(i,j-1,k,bi,bj)
+     &                  + E_ML_temp(i,j+1,k)*maskC(i,j+1,k,bi,bj)
+     &                  + E_ML_temp(i,j-2,k)*maskC(i,j-2,k,bi,bj)
+     &                  + E_ML_temp(i,j+2,k)*maskC(i,j+2,k,bi,bj))
+     &                 /( 1. _d 0
+     &                  + maskC(i,j-1,k,bi,bj)
+     &                  + maskC(i,j+1,k,bi,bj)
+     &                  + maskC(i,j-2,k,bi,bj)          
+     &                  + maskC(i,j+2,k,bi,bj))      
+     &                                         * maskC(i,j,k,bi,bj)
+          ENDDO
+       ENDDO 
+      ENDDO       
+        
+        
+      ELSE
+          
+           
+          
+      DO k=1,Nr
+      DO j=1-OLy+1,sNy+OLy-1
+       DO i=1-OLx,sNx+OLx-1    
+          E_ML(i,j,k) = E_ML_temp(i,j,k)
+        ENDDO
+      ENDDO   
+      ENDDO
+      
+      ENDIF  
+      
+      
+      
+        
+        
+        
         
 C    Calculate depth-averaged EKE or E, and Ue
       DO k=1,Nr
-       DO j=1-Oly+1,sNy+Oly-1
+       DO j=1-Oly+3,sNy+Oly-3
         DO i=1-Olx,sNx+Olx-1
             E_ML_zavg(i,j) = E_ML_zavg(i,j) + 
      &               drF(k)*hfacC(i,j,k,bi,bj)*E_ML(i,j,k)      
@@ -686,7 +738,7 @@ C    Calculate depth-averaged EKE or E, and Ue
        ENDDO
       ENDDO
       
-      DO j=1-Oly+1,sNy+Oly-1
+      DO j=1-Oly+3,sNy+Oly-3
        DO i=1-Olx,sNx+Olx-1
         IF (r_Low(i,j,bi,bj).NE. 0.0 _d 0) THEN
 C         The minus sign is because r_Low<0
@@ -740,10 +792,10 @@ C      ENDIF
       
 C     Compute Kgm using slope-aware GEOMETRIC      
        DO k=1,Nr
-       DO j=1-Oly+1,sNy+Oly-1
+       DO j=1-Oly+3,sNy+Oly-3
         DO i=1-Olx,sNx+Olx-1   
          GM_ML_temp(i,j,k) 
-     &        = 0.05/(8*SBurger(i,j)**2+1)
+     &        = 0.05/(6.7*SBurger(i,j)**1.5+1)
      &             *sqrt(Ri(i,j))/fCori(i,j,bi,bj)*E_ML_zavg(i,j);
 C            Enforce lower and upper bounds on the diffusivity
              GM_ML_temp(i,j,k) 
@@ -758,7 +810,7 @@ C            Enforce lower and upper bounds on the diffusivity
       ELSEIF(GM_useML .AND. GM_MLEner .AND. .NOT. Prograde) THEN
 C Traditional scalings for Kgm in retrograde flows     
           
-      DO j=1-Oly+1,sNy+Oly-1
+      DO j=1-Oly+3,sNy+Oly-3
        DO i=1-Olx,sNx+Olx-1
         IF (Beta_t(i,j).NE. 0.0 _d 0) THEN
            Lrhines(i,j) = sqrt(Ue(i,j)/Beta_t(i,j))
@@ -783,7 +835,7 @@ C  Compute Kgm using slope-aware mixing length theory (Burger number)
               
        
        DO k=1,Nr
-       DO j=1-Oly+1,sNy+Oly-1
+       DO j=1-Oly+3,sNy+Oly-3
         DO i=1-Olx,sNx+Olx-1   
          GM_ML_temp(i,j,k) 
      &        = 0.24*(SBurger(i,j) + 1/(209.0*(SBurger(i,j)+0.0025)) )
@@ -814,7 +866,7 @@ C     Compute slope parameter
         
 C    predict kgm
       DO k=1,Nr
-       DO j=1-Oly+1,sNy+Oly-1
+       DO j=1-Oly+3,sNy+Oly-3
         DO i=1-Olx,sNx+Olx-1   
             
 C         GM_ML_temp(i,j,k) 
@@ -901,7 +953,7 @@ C    Calculate bulk form of Kgm
        DO j=1-Oly+1,sNy+Oly-1
         DO i=1-Olx,sNx+Olx-1
          IF (k.LE.kLow_C(i,j)) THEN
-             Input(1,1) = abs(Uzavg(i,j))/GM_ML_normal(1,1)
+             Input(1,1) = sqrt(Usqzavg(i,j))/GM_ML_normal(1,1)
              Input(2,1) = SBurger(i,j)/GM_ML_normal(1,2)
              Input(3,1) = (4000-abs(H(i,j)))/4000/GM_ML_normal(1,3)
              Input(4,1) = Ld(i,j)/GM_ML_normal(1,4)
@@ -928,7 +980,7 @@ C            Enforce lower and upper bounds on the diffusivity
 #ifdef ALLOW_DIAGNOSTICS
 C     Diagnostics
       IF ( useDiagnostics ) THEN
-        CALL DIAGNOSTICS_FILL(Uzavg,   'GMANN_I1',0,1,2,bi,bj,myThid)
+        CALL DIAGNOSTICS_FILL(Usqzavg, 'GMANN_I1',0,1,2,bi,bj,myThid)
         CALL DIAGNOSTICS_FILL(SBurger, 'GMANN_I2',0,1,2,bi,bj,myThid)
         CALL DIAGNOSTICS_FILL(H,       'GMANN_I3',0,1,2,bi,bj,myThid)
         CALL DIAGNOSTICS_FILL(Ld,    'GMANN_I4',0,1,2,bi,bj,myThid)
@@ -940,6 +992,7 @@ C     Diagnostics
       
       IF ( GM_useML ) THEN 
       IF ( SmoothKgm ) THEN 
+C  Cannot smooth Kgm when EKE is already smoothed        
           DO k=1,Nr
            DO j=1-Oly+2,sNy+Oly-2
             DO i=1-Olx,sNx+Olx-1     
@@ -957,7 +1010,7 @@ C     Diagnostics
        ELSE
            
           DO k=1,Nr
-           DO j=1-Oly+1,sNy+Oly-1
+           DO j=1-Oly+3,sNy+Oly-3
             DO i=1-Olx,sNx+Olx-1    
              GM_ML_k(i,j,k,bi,bj) =   GM_ML_temp(i,j,k)
             ENDDO

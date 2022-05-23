@@ -74,7 +74,7 @@ C     GM_slopeSqCutoff :: slope^2 cut-off value
      &          GM_K3D_maxRenorm, GM_useLeithQG,
      &          GM_ML_minVal_K, GM_ML_maxVal_K, REDI_useML,
      &          GM_ML_minN2, GM_useML, GM_MLEner, GM_Burger,
-     &          GM_NoParCel,
+     &          GM_NoParCel, LeftReplacement,
      &          GM_ML_w0, GM_ML_w1, GM_ML_w2,
      &          GM_ML_b0, GM_ML_b1, GM_ML_b2,
      &          UpVp_useML, SmoothUpVp, 
@@ -85,7 +85,7 @@ C     GM_slopeSqCutoff :: slope^2 cut-off value
      &          E_ML_w0, E_ML_w1, E_ML_w2,
      &          E_ML_b0, E_ML_b1, E_ML_b2,
      &          UpVp_VertStruc, R_low_orig, 
-     &          SmoothKgm, SmoothDUpVpDy
+     &          SmoothKgm, SmoothDUpVpDy, SmoothEner
 
 C---+----1----+----2----+----3----+----4----+----5----+----6----+----7-|--+----|
 
@@ -135,6 +135,8 @@ C--   Default values GM/Redi
       UpVp_VertStruc      = .FALSE.
       SmoothKgm           = .FALSE.
       SmoothDUpVpDy       = .FALSE.
+      SmoothEner          = .FALSE.
+      LeftReplacement     = .FALSE.
       Prograde            = .FALSE.
 C     Load water depth and ignore hFacMin constrain
 C     This is necessary for obtaining smooth topographic slope 
