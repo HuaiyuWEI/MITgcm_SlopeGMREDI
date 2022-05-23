@@ -26,6 +26,7 @@ C     \ev
 
 #include "SIZE.h"
 #include "EEPARAMS.h"
+#include "EESUPPORT.h"
 #include "PARAMS.h"
 #include "GRID.h"
 #include "FFIELDS.h"
@@ -43,9 +44,14 @@ C     !LOCAL VARIABLES:
 C     == Local variables ==
 C     Loop counters
       INTEGER i,j,k,kp1,km1,klow
-         
+      INTEGER :: stat(MPI_STATUS_SIZE),ierror
+      INTEGER :: nproc,procNum  
       _RL UpVp_ML_temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
       _RL temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
+      _RL temp_new(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
+      _RL temp_other(1:sNx,1:sNy,Nr)
+      _RL temp_Allproc(1:sNx,1:sNy*nPy,Nr)
+      _RL temp_Allproc_new(1:sNx,1:sNy*nPy,Nr)
       _RL DupvpDy_ML_temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
       _RL DupvpDy_ML_temp2(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL Depth_temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
@@ -171,15 +177,15 @@ C     &                     MAX(temp(i,j,k),-DUpVpDy_ML_maxVal)
       ENDDO   
       ENDDO
   
-C     Modifiy near-bottom values              
+C     Modifiy near-bottom values  
+C     Values in deepest (2 cells) are set to zero
       DO k=1,Nr
       DO j=1-OLy+1,sNy+OLy-1
       DO i=1-OLx+1,sNx+OLx     
       
          IF (k .GT. kLowC(i,j,bi,bj)-2 .AND. 
      &       k .LE. kLowC(i,j,bi,bj)) THEN 
-C                klow = kLowC(i,j,bi,bj)-3
-C                temp(i,j,k) = temp(i,j,klow)               
+C     kLowC   :: index of the r-lowest "wet cell" (2D)          
                 temp(i,j,k) = 0. _d 0  
          ENDIF
               
@@ -187,62 +193,166 @@ C                temp(i,j,k) = temp(i,j,klow)
       ENDDO   
       ENDDO             
               
-     
+ 
+  
+      
+      
+      IF (LeftReplacement) THEN
+      
+      
+      
+      
+      
+      
+      
+C   Send data of du'v'/dy from all processors to processor zero   
+      
+      nproc=nPx*nPy
+      call mpi_barrier(mpi_comm_world,ierror)
 
-C     Du'v'/Dy = 0 at surface as u'v' has been enforced to 0     
+      DO procNum=1, nproc-1
+               
+      IF (mpiMyId.eq.procNum.and.mpiMyId.ne.0.and.nproc.gt.1) THEN
 
+      call mpi_send(temp(1:sNx,1:sNy,1:Nr),sNx*sNy*Nr,
+     &              MPI_DOUBLE_PRECISION,0,
+     &              procNum+1000,mpi_comm_world,ierror)              
+      ENDIF
 
-C     Use values in k level to replace extreme values of Du'v'/Dy in k-1 level
+      IF (mpiMyId.eq.0.and.nproc.gt.1) THEN
+      call mpi_recv(temp_other(1:sNx,1:sNy,1:Nr),sNx*sNy*Nr,
+     &              MPI_DOUBLE_PRECISION,procNum,
+     &              procNum+1000,mpi_comm_world,stat,ierror)
+      temp_Allproc(1:sNx,1:sNy,1:Nr)=temp(1:sNx,1:sNy,1:Nr)
+      temp_Allproc(:,1+sNy*procNum:sNy+sNy*procNum,:)=temp_other(:,:,:)
+      ENDIF
+            
 
-      DO k=Nr,1,-1
-      DO j=1-OLy+1,sNy+OLy-1
-      DO i=1-OLx+1,sNx+OLx  
-          IF (k .LE. kLowC(i,j,bi,bj)-1) THEN
-             kp1 = min(k+1,Nr)
-             IF(abs(temp(i,j,k)) .GT. DUpVpDy_ML_maxVal) THEN
-                temp(i,j,k) = temp(i,j,kp1)   
-             ENDIF
-          ENDIF
+      call mpi_barrier(mpi_comm_world,ierror)
       ENDDO
-      ENDDO   
-      ENDDO 
+       
+      call mpi_barrier(mpi_comm_world,ierror)
 
       
-C     Use values in k-1 level to replace extreme values of Du'v'/Dy in k level
 
-C      DO k=2,Nr
-C      DO j=1-OLy+1,sNy+OLy-1
-C      DO i=1-OLx+1,sNx+OLx  
-C          IF (k .LE. kLowC(i,j,bi,bj)) THEN
-C             km1 = max(k-1,1)
-C             IF(abs(temp(i,j,k)) .GT. DUpVpDy_ML_maxVal) THEN
-C                temp(i,j,k) = temp(i,j,km1)   
-C             ENDIF
-C          ENDIF
-C      ENDDO
-C      ENDDO   
-C      ENDDO      
       
-      
-      
-      
-      
-      
-C      Use value in the left to replace extreme values in Du'v'/Dy
-C      This could lead to problem because we only have information of 
-C      a local tile rather than the whole domaine
-C
-C      DO k=1,Nr
-C      DO j=1-OLy+2,sNy+OLy-1
-C      DO i=1-OLx+1,sNx+OLx         
-C             IF(abs(temp(i,j,k)) .GT. DUpVpDy_ML_maxVal) THEN
-C                temp(i,j,k) = temp(i,j-1,k)   
+      IF (mpiMyId.eq.0) THEN
+          
+C   Replcae extreme values of du'v'/dy(i,j,k) by the smaller value between
+C   position (i,j-1,k) and (i,j,k+1)
+C   This replacement procedure is done by processor zero          
+C      DO k=Nr,1,-1
+C      DO j=2,sNy*nPy
+C      DO i=1,sNx           
+C            IF(abs(temp_Allproc(i,j,k)) .GT. DUpVpDy_ML_maxVal) THEN
+C                
+C      kp1 = min(k+1,Nr)
+C      IF(abs(temp_Allproc(i,j-1,k)).GT.abs(temp_Allproc(i,j,kp1)) ) THEN
+C      temp_Allproc(i,j,k) = temp_Allproc(i,j,kp1)  
+C      ELSE
+C      temp_Allproc(i,j,k) = temp_Allproc(i,j-1,k)
+C      ENDIF    
+C      
 C            ENDIF
 C      ENDDO
 C      ENDDO   
 C      ENDDO  
 
+          
+          
+C   Replcae extreme values of du'v'/dy(i,j,k) by the values at the left grid (j-1)
+C   This replacement procedure is done by processor zero       
+      DO k=1,Nr
+      DO j=2,sNy*nPy
+      DO i=1,sNx
+             IF(abs(temp_Allproc(i,j,k)) .GT. DUpVpDy_ML_maxVal) THEN
+                temp_Allproc(i,j,k) = temp_Allproc(i,j-1,k)
+            ENDIF
+      ENDDO
+      ENDDO
+      ENDDO
 
+         
+         
+      DO k=1,Nr
+      DO j=1,sNy+OLy
+      DO i=1-OLx,sNx+OLx
+      temp_new(i,j,k) = temp_Allproc(1,j,k)
+      ENDDO
+      ENDDO   
+      ENDDO
+      
+     
+      ENDIF
+
+      call mpi_barrier(mpi_comm_world,ierror)
+
+        
+
+C   send the modified du'v'/dy to other processors
+     
+       call mpi_bcast(temp_Allproc,sNx*sNy*nPy*Nr,MPI_DOUBLE_PRECISION,
+     &                0,mpi_comm_world,ierror)
+      
+
+           
+      call mpi_barrier(mpi_comm_world,ierror)
+
+           
+           
+      IF (mpiMyId.ne.0.and.mpiMyId.ne.nproc-1) THEN
+      DO k=1,Nr
+      DO j=1-OLy,sNy+OLy
+      DO i=1-OLx,sNx+OLx          
+                temp_new(i,j,k) = temp_Allproc(1,mpiMyId*sNy+j,k)   
+      ENDDO
+      ENDDO   
+      ENDDO  
+      
+      ELSEIF(mpiMyId.eq.nproc-1) THEN
+          
+      DO k=1,Nr
+      DO j=1-OLy,sNy
+      DO i=1-OLx,sNx+OLx          
+                temp_new(i,j,k) = temp_Allproc(1,mpiMyId*sNy+j,k)   
+      ENDDO
+      ENDDO   
+      ENDDO               
+          
+      ENDIF
+      
+      call mpi_barrier(mpi_comm_world,ierror)
+    
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      ELSE
+          
+      DO k=1,Nr
+      DO j=1-OLy+1,sNy+OLy-1
+      DO i=1-OLx+1,sNx+OLx         
+                temp_new(i,j,k) = temp(i,j,k)
+      ENDDO
+      ENDDO   
+      ENDDO    
+          
+          
+      ENDIF
+      
+      
+
+      
+      
+      
+      
+    
+     
 C Use the mean value of surrounding points to replace extreme values in Du'v'/Dy
 C      DO k=1,Nr
 C       DO j=1-Oly+2,sNy+Oly-2
@@ -306,12 +416,13 @@ C     Smooth DupvpDy vertically
 
       ELSE
 C     Depth-mean version             
-      DO k=3,Nr      
-       DO j=1-Oly+1,sNy+Oly-1
+C      DO k=3,Nr     
+      DO k=1,Nr   
+       DO j=1,sNy        
         DO i=1-Olx+1,sNx+Olx
         IF (k.LE. kLowC(i,j,bi,bj)-2) THEN            
             DupvpDy_ML_temp2(i,j) = DupvpDy_ML_temp2(i,j) + 
-     &               drF(k)*hfacC(i,j,k,bi,bj)*temp(i,j,k) 
+     &               drF(k)*hfacC(i,j,k,bi,bj)*temp_new(i,j,k) 
             Depth_temp(i,j) = Depth_temp(i,j)+drF(k)*hfacC(i,j,k,bi,bj)
         ENDIF
         ENDDO 
@@ -319,7 +430,7 @@ C     Depth-mean version
       ENDDO
       
       DO k=1,Nr 
-      DO j=1-Oly+1,sNy+Oly-1
+      DO j=1,sNy
        DO i=1-Olx+1,sNx+Olx
         IF (k.LE. kLowC(i,j,bi,bj)) THEN
       DupvpDy_ML_temp(i,j,k) = DupvpDy_ML_temp2(i,j)/Depth_temp(i,j)
@@ -367,7 +478,7 @@ C     &                             *(4000-abs(rC(k)))/2000
 C     Diagnostics
       IF ( useDiagnostics ) THEN
       CALL DIAGNOSTICS_FILL(UpVp_ML_temp,'UpVp_ML ',0,Nr,2,bi,bj,myThid)
-      CALL DIAGNOSTICS_FILL(temp,'DupvpDy2',0,Nr,2,bi,bj,myThid)
+      CALL DIAGNOSTICS_FILL(temp_new,'DupvpDy2',0,Nr,2,bi,bj,myThid)
 C      CALL DIAGNOSTICS_FILL(DupvpDy_ML,'DupvpDy ',0,Nr,1,bi,bj,myThid)
       ENDIF
 #endif
