@@ -337,7 +337,8 @@ C   send the modified du'v'/dy to other processors
       DO k=1,Nr
       DO j=1-OLy+1,sNy+OLy-1
       DO i=1-OLx+1,sNx+OLx         
-                temp_new(i,j,k) = temp(i,j,k)
+       temp_new(i,j,k) = MIN(temp(i,j,k),DUpVpDy_ML_maxVal)
+       temp_new(i,j,k) = MAX(temp_new(i,j,k),-DUpVpDy_ML_maxVal)    
       ENDDO
       ENDDO   
       ENDDO    
@@ -347,10 +348,7 @@ C   send the modified du'v'/dy to other processors
       
       
 
-      
-      
-      
-      
+
     
      
 C Use the mean value of surrounding points to replace extreme values in Du'v'/Dy
