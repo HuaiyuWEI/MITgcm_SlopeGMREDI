@@ -15,16 +15,19 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
   %%%%% SET-UP %%%%%
   %%%%%%%%%%%%%%%%%%
   
-  tau_x0 = 0.05*(2); %%% Wind stress magnitude
+  tau_x0 = 0.05*(2) %%% Wind stress magnitude
+    
+  Ws = 50*1000*(1)  %%% Slope half-width
+ 
+  tAlpha = 1e-4*(1) %%% Linear thermal expansion coeff
   
-  tAlpha = 1e-4*(1); %%% Linear thermal expansion coeff
-  
-  Ws = 50*1000*(1);  %%% Slope half-width
 
   hFacMin = 0.3;
  
 
-  GM_NoParCel = false;
+%%%%% CHECK diag_fields_inst %%%%%%%
+  
+  GM_NoParCel = false;  % True when we artificially turn off Kgm at partial cells
   
   %%% Tapering scheme
   GM_taper_scheme     = 'clipping'; % clipping dm95 linear gkw91 ldd97
@@ -35,7 +38,7 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
   %%% DM95 critical slope
   GM_Scrit            = GM_maxSlope;
   %%% DM95 tapering width
-  GM_Sd               = 0.0025;
+  GM_Sd               = GM_maxSlope/10;
   end
   
   
@@ -43,47 +46,96 @@ function nTimeSteps = setParams (inputpath,codepath,listterm,Nx,Ny,Nr)
   % slopes for most of tapering schemes
   
   %%% Set true if initialization files are set externally
-  init_extern = false
+  init_extern = true
   %%% Random noise amplitude, only works for   init_extern = false
   tNoise = 0;  
   
   %%% Horizontal viscosity  
-  viscAh = 10;  
+  viscAh = 0;  
   %%% Grid-dependent biharmonic viscosity
   viscA4Grid = 0.1; 
   %%% non-dimensional Smagorinsky biharmonic viscosity factor
   viscC4smag = 0;
   %%% Vertical viscosity
-  viscAr = 3e-4;     % Si22:3e-4  % 1e-4
+  viscAr = 0;     % Si22:3e-4  % NeverWorld2: 1e-4
   %%% Vertical temp diffusion
-  diffKrT = 1e-5;    % Mak18, Si22
+  diffKrT = 1e-5;    % Mak18, Si22  1e-5
    
   
-  Prograde=false;
+ 
   
-  GM_useML = false;
-  UpVp_useML = false;
-  REDI_useML = false;
+  GM_useML = true;
+  UpVp_useML = true;
   
-  GM_background_K   = 70;
-  GM_MLEner  = false;
+  GM_background_K   = 0;
+  GM_MLEner  = true;
   GM_Burger  = false;
-  SmoothKgm =  false;  
   
-  SmoothUpVp = false;
+  LeftReplacement = true;
+  SmoothEner = true;
+  SmoothUpVp = true;
+  
+  SmoothKgm =  false; 
   SmoothDUpVpDy = false;
+  
   UpVp_ML_maxVal = 100; %means we don't limit upvp
-  DUpVpDy_ML_maxVal = 1e-6;%5e-7
+  DUpVpDy_ML_maxVal = 1e-7;%5e-7
   UpVp_VertStruc = false;
 %   GM_VertStruc = true;
-  
-  
   GM_ML_minN2 = 1.0e-8;
-  GM_ML_minVal_K = 0;
+  GM_ML_minVal_K = 0;     % 10 20
   GM_ML_maxVal_K = 1000;
     
   Lx = 2*1000; %%% Domain size in x 
 
+  
+    REDI_useML = false;
+    Prograde=false; 
+  
+    
+    
+  %%% visbeck  
+    
+ GM_Visbeck_alpha    = 0  %1.5e-02;
+ GM_Visbeck_length   = 0 %3.0e+04;
+ GM_Visbeck_depth    = 0 %4.0e+03;
+ GM_Visbeck_minVal_K = 0 %0.00000000e+00;
+ GM_Visbeck_maxVal_K = 0 %1.00000000e+03;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 %   if(~GM_VertStruc)
 % Bulk Kgm  
 NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_normalization';
@@ -146,7 +198,7 @@ NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_no
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
   
-  simTime = 30*t1year + 1*t1day; % %%% Simulation time  
+  simTime = 40*t1year+0.5*t1day; % %%% Simulation time  
   diag_phase_avg = 100*t1year;    
   
   nIter0 = 0; %%% Initial iteration 
@@ -180,10 +232,9 @@ NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_no
   %%% Small domain, delta > 0 wind
   use_wind = true;
   restore_south = false;
-  neg_delta = 0;
   mintemp = 0;
   maxtemp = 10;
-  
+  difftemp = 5;
   
 
   %%% Parameters related to periodic wind forcing
@@ -385,7 +436,7 @@ NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_no
 %   tSouth = tNorth + difftemp*(1+zz/H);
 %   tSouth = tNorth + difftemp;
   if (restore_south)
-    if (neg_delta)
+    if (Prograde)
       tSouth = maxtemp + difftemp + zz*N2South/g/tAlpha;
       tSouth(zz<-(H-Hs)) = mintemp + (maxtemp + difftemp - (H-Hs)*N2South/g/tAlpha)*(zz(zz<-(H-Hs))+H)/Hs;
     else
@@ -588,18 +639,22 @@ NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_no
   %%%%%%%%%%%%%%%%%%%%%%
   
     
+ 
   %%% Set up a wind stress profile    
   if (use_wind)
 %     tau_x = tau_x0./cosh(((yy-Ys)/Ws).^2);
     Lwind = 400*m1km;
     tau_x = tau_x0.*sin(pi*yy/Lwind).^2;
     tau_x(yy>Lwind) = 0;
-    if (~neg_delta)
-      tau_x = -tau_x;
-    end
+    if (Prograde)
+       tau_x = abs(tau_x);
+    else
+       tau_x = -abs(tau_x);
+     end
   else
     tau_x = 0*yy;
   end
+
   
   %%% Create wind stress matrix  
   tau_mat = zeros(size(Y)); %%% Wind stress matrix  
@@ -695,7 +750,12 @@ NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_no
   useRBCsalt = false;
   useRBCuVel = false;
   useRBCvVel = false;
+    
+if (Prograde)
+  tauRelaxT = 14*t1day; % 7d for normal runs, 14d for prograde run
+else
   tauRelaxT = 7*t1day; % 7d for normal runs, 14d for prograde run
+end
   tauRelaxS = t1day;
   tauRelaxU = t1day;
   tauRelaxV = t1day;
@@ -726,11 +786,16 @@ NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_no
   
   %%% Yan: relax SST linearly from 15(onshore) to 10(offshore) for prograde
   %%% run
-%   indy = find(yy <= 4.5e5, 1, 'last');
-%   Tsurf = linspace(15, 10, indy+1);
-%   for j = 1:indy+1
-%       temp_relax(:, j, 1:10) = Tsurf(j);
-%   end
+  if (Prograde)
+      
+  indy = find(yy <= 4.5e5, 1, 'last');
+  Tsurf = linspace(15, 10, indy+1);
+  for j = 1:indy+1
+      temp_relax(:, j, 1:10) = Tsurf(j);
+  end
+  
+  end
+  
   
   %%% Plot the relaxation temperature
   if (showplots)
@@ -794,14 +859,16 @@ NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_no
       end
     end
   end
-%   for j = 1:indy+1
-%       for k = 1:Nr
-%            if zz(k) > 0-Lsurf % Yan: for prograde run
-%               msk_temp(:,j,k) = (1/surfaceRelaxFac) * (zz(k)-(-Lsurf)) / Lsurf;
-%            end
-%       end
-%   end
   
+if (Prograde)
+  for j = 1:indy+1
+      for k = 1:Nr
+           if zz(k) > 0-Lsurf % Yan: for prograde run
+              msk_temp(:,j,k) = (1/surfaceRelaxFac) * (zz(k)-(-Lsurf)) / Lsurf;
+           end
+      end
+  end
+end
   %%% Plot the temperature relaxation timescale
   if (showplots)
     figure(fignum);
@@ -956,9 +1023,11 @@ NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_no
   layers_name = 'TH';  
   
   %%% Potential temperature bounds for layers  
-  if (neg_delta)
-    layers_bounds = mintemp:0.5:maxtemp+difftemp;
-  else
+   %%% Potential temperature bounds for layers  
+  if (Prograde)
+%     layers_bounds = mintemp:0.5:maxtemp+difftemp;
+    layers_bounds = [mintemp flip(tNorth) maxtemp:0.1:maxtemp+difftemp];
+   else
 %     layers_bounds = mintemp:(maxtemp-mintemp)/100:maxtemp;
     layers_bounds = [mintemp flip(tNorth) maxtemp];
   end
@@ -1033,6 +1102,16 @@ NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_no
   gmredi_parm01.addParm('GM_maxSlope',GM_maxSlope,PARM_REAL);
   gmredi_parm01.addParm('GM_taper_scheme',GM_taper_scheme,PARM_STR);
   
+  gmredi_parm01.addParm('GM_Visbeck_alpha',GM_Visbeck_alpha,PARM_REAL);
+  gmredi_parm01.addParm('GM_Visbeck_length',GM_Visbeck_length,PARM_REAL);
+  gmredi_parm01.addParm('GM_Visbeck_depth',GM_Visbeck_depth,PARM_REAL);
+  gmredi_parm01.addParm('GM_Visbeck_minVal_K',GM_Visbeck_minVal_K,PARM_REAL);
+  gmredi_parm01.addParm('GM_Visbeck_maxVal_K',GM_Visbeck_maxVal_K,PARM_REAL);
+
+
+ 
+ 
+ 
   if strcmp(GM_taper_scheme,'dm95')
   gmredi_parm01.addParm('GM_Scrit',GM_Scrit,PARM_REAL);
   gmredi_parm01.addParm('GM_Sd',GM_Sd,PARM_REAL);
@@ -1049,6 +1128,9 @@ NNpath_GM = 'G:\TracerScripts\Prograde\For ML\table6_ANNGM_fig20b\weight_bias_no
   gmredi_parm01.addParm('GM_ML_maxVal_K',GM_ML_maxVal_K,PARM_REAL);
   
   
+   
+    gmredi_parm01.addParm('LeftReplacement',LeftReplacement,PARM_BOOL);
+    gmredi_parm01.addParm('SmoothEner',SmoothEner,PARM_BOOL);
     gmredi_parm01.addParm('UpVp_useML',UpVp_useML,PARM_BOOL);
     gmredi_parm01.addParm('SmoothUpVp',SmoothUpVp,PARM_BOOL);
     gmredi_parm01.addParm('UpVp_ML_maxVal',UpVp_ML_maxVal,PARM_REAL);
@@ -1074,6 +1156,7 @@ if(GM_useML)
  copyfile(strcat(NNpath_E,'\E_b_0.txt'),fullfile(inputpath));
  copyfile(strcat(NNpath_E,'\E_b_1.txt'),fullfile(inputpath));
  copyfile(strcat(NNpath_E,'\E_b_2.txt'),fullfile(inputpath));  
+ copyfile(strcat(NNpath_E,'\E_normal.txt'),fullfile(inputpath));  
  end
 end
   
@@ -1245,17 +1328,24 @@ Lw(Lw<0)=0
    'EKEANNI1','EKEANNI2','EKEANNI3', 'EKEANNI4',...
   };
 %    'REDI_K0','REDI_A','REDI_S', 'REDI_C', 'Sdelta','REDI_ANN',...   
-  diag_fields_inst = ...
- {...
-   'UVEL','VVEL','WVEL','THETA', ...
-  };
+%   diag_fields_inst = ...
+%  {...
+%    'UVEL','VVEL','WVEL','THETA', ...
+%   };
 
-
+%   diag_fields_inst = ...
+%  {...
+%    'UVEL','VVEL','WVEL','THETA', ...
+%    'GM_ANN','GM_VisbK',...
+%    'UpVp_ML','DupvpDy','DupvpDy2', ...
+%    'ReANN_I1','ReANN_I2','ReANN_I3', ...   
+%    'EKEANNI1','EKEANNI2','EKEANNI3', 'EKEANNI4',...
+%   };
 
   numdiags_inst = length(diag_fields_inst);  
   diag_freq_inst = .1*t1year;
 %   diag_freq_inst = 1310;
-%   diag_freq_inst = 1*t1day;
+%   diag_freq_inst = .1*t1day;
   diag_phase_inst = 0;
   
   for n=1:numdiags_inst    
