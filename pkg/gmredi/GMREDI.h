@@ -46,6 +46,8 @@ C     GM_useLeithQG    :: add Leith QG viscosity to GMRedi tensor
       LOGICAL REDI_useML
       LOGICAL GM_MLEner
       LOGICAL GM_Burger
+      LOGICAL GM_SlopeAware
+      LOGICAL GM_UeLrh
       LOGICAL UpVp_useML
       LOGICAL UpVp_VertStruc
       LOGICAL SmoothUpVp
@@ -54,6 +56,8 @@ C     GM_useLeithQG    :: add Leith QG viscosity to GMRedi tensor
       LOGICAL SmoothEner
       LOGICAL LeftReplacement
       LOGICAL Prograde
+      LOGICAL UseDiagKgm
+      LOGICAL UseDiagUpVp
       COMMON /GM_PARAMS_L/
      &                   GM_AdvForm, GM_AdvSeparate,
      &                   GM_useBVP,  GM_useSubMeso,
@@ -65,7 +69,9 @@ C     GM_useLeithQG    :: add Leith QG viscosity to GMRedi tensor
      &                   GM_useML, REDI_useML, GM_MLEner, GM_Burger,
      &                   GM_NoParCel, UpVp_useML, UpVp_VertStruc,
      &                   Prograde, SmoothDUpVpDy, LeftReplacement,
-     &                   SmoothUpVp, SmoothKgm, SmoothEner
+     &                   SmoothUpVp, SmoothKgm, SmoothEner,
+     &                   GM_SlopeAware, GM_UeLrh, UseDiagKgm,
+     &                   UseDiagUpVp
 
 C--   GM/Redi Integer-type parameters
 C     GM_BVP_modeNumber :: vertical mode number used for speed "c" in BVP transport
@@ -344,11 +350,14 @@ C     See Model/src/apply_forcing.F and UpVpML_tendency_apply.F
       _RL GM_ML_K(1-OLx:sNx+OLx,1-OLy:sNy+OLy,Nr,nSx,nSy)
       _RL REDI_ML_K(1-OLx:sNx+OLx,1-OLy:sNy+OLy,Nr,nSx,nSy)
       _RS Lw(1-OLx:sNx+OLx,1-OLy:sNy+OLy,Nr,nSx,nSy)
+      _RS DiagKgm(1-OLx:sNx+OLx,1-OLy:sNy+OLy,Nr,nSx,nSy)
+      _RS DiagUpVp(1-OLx:sNx+OLx,1-OLy:sNy+OLy,Nr,nSx,nSy)
       _RL UpVp_ML(1-OLx:sNx+OLx,1-OLy:sNy+OLy,Nr,nSx,nSy)
       _RL DupvpDy_ML(1-OLx:sNx+OLx,1-OLy:sNy+OLy,Nr,nSx,nSy)
       _RS R_low_orig(1-OLx:sNx+OLx,1-OLy:sNy+OLy,nSx,nSy)
-      COMMON /GM_ML/ GM_ML_K,UpVp_ML,DupvpDy_ML,R_low_orig,REDI_ML_K,Lw
-
+      COMMON /GM_ML/ 
+     &             GM_ML_K, UpVp_ML, DupvpDy_ML, R_low_orig,
+     &             REDI_ML_K, Lw, DiagKgm, DiagUpVp
 #endif /* ALLOW_GM_ML */
 
 #endif /* ALLOW_GMREDI */

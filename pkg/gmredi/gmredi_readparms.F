@@ -85,7 +85,9 @@ C     GM_slopeSqCutoff :: slope^2 cut-off value
      &          E_ML_w0, E_ML_w1, E_ML_w2,
      &          E_ML_b0, E_ML_b1, E_ML_b2,
      &          UpVp_VertStruc, R_low_orig, 
-     &          SmoothKgm, SmoothDUpVpDy, SmoothEner
+     &          SmoothKgm, SmoothDUpVpDy, SmoothEner,
+     &          GM_SlopeAware, GM_UeLrh, UseDiagKgm,
+     &          UseDiagUpVp
 
 C---+----1----+----2----+----3----+----4----+----5----+----6----+----7-|--+----|
 
@@ -129,7 +131,9 @@ C--   Default values GM/Redi
       REDI_useML          = .FALSE.
       GM_NoParCel         = .FALSE.
       GM_MLEner           = .FALSE.
-      GM_Burger           = .TRUE.
+      GM_Burger           = .FALSE.
+      GM_SlopeAware       = .FALSE.
+      GM_UeLrh            = .TRUE.
       UpVp_useML          = .FALSE.
       SmoothUpVp          = .FALSE.
       UpVp_VertStruc      = .FALSE.
@@ -138,6 +142,8 @@ C--   Default values GM/Redi
       SmoothEner          = .FALSE.
       LeftReplacement     = .FALSE.
       Prograde            = .FALSE.
+      UseDiagKgm          = .FALSE.
+      UseDiagUpVp         = .FALSE.
 C     Load water depth and ignore hFacMin constrain
 C     This is necessary for obtaining smooth topographic slope 
       CALL READ_REC_XY_RS( bathyFile, R_low_orig, 1, 0, myThid )
@@ -362,7 +368,16 @@ C      READ(66,*) (E_ML_normal(1,j),j=1,6)
       _EXCH_XYZ_RS(Lw, myThid )
       ENDIF
       
+      IF (UseDiagKgm) THEN
+      CALL READ_REC_XYZ_RS( 'DiagKgm.bin', DiagKgm, 1, 0, myThid )
+      _EXCH_XYZ_RS(DiagKgm, myThid )
+      ENDIF      
       
+      IF (UseDiagUpVp) THEN
+      CALL READ_REC_XYZ_RS( 'DiagUpVp.bin', DiagUpVp, 1, 0, myThid )
+      _EXCH_XYZ_RS(DiagUpVp, myThid )
+      ENDIF  
+            
 C     Default value for GM_isopycK is equal to GM_background_K :
       IF (GM_isopycK.EQ.-999.) GM_isopycK = GM_background_K
 
@@ -384,7 +399,7 @@ C     Some constants
         GM_ExtraDiag = GM_isopycK.NE.GM_background_K
       ENDIF
       
-      IF (GM_useML .OR. REDI_useML) THEN
+      IF (GM_useML .OR. REDI_useML .OR. UseDiagKgm) THEN
                 GM_ExtraDiag = .TRUE.
       ENDIF
       

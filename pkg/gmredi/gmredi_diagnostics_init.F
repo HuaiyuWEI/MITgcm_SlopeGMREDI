@@ -683,8 +683,50 @@ c     IF ( useDiagnotics ) THEN
       diagCode  = 'SM      MR      '
       CALL DIAGNOSTICS_ADDTOLIST( diagNum,
      I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
+     
+       diagName  = 'ReANN_I7'
+      diagTitle = 'depth-intergrated DRhoDy'
+      diagUnits = 'none            '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
       
-
+      diagName  = 'ReANN_I8'
+      diagTitle = 'depth-intergrated DRhoDz'
+      diagUnits = 'none            '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
+      
+      diagName  = 'ReANN_I5'
+      diagTitle = 'sigmaY'
+      diagUnits = 'none            '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
+      
+      diagName  = 'ReANN_I9'
+      diagTitle = 'sigmaR'
+      diagUnits = 'none            '
+      diagCode  = 'WM      LR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
+      
+      diagName  = 'rhoInSi '
+      diagTitle = 'RhoInSitu'
+      diagUnits = 'none            '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
+      
+      diagName  = 'tFld    '
+      diagTitle = 'tFld'
+      diagUnits = 'none            '
+      diagCode  = 'SM      MR      '
+      CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I          diagName, diagCode, diagUnits, diagTitle, 0, myThid )
+      
+      
       diagName  = 'REDI_ANN'
       diagTitle = 'Predicted isopycnal eddy diffusivity'
       diagUnits = 'm^2/s           '

@@ -477,11 +477,13 @@ C      ENDDO
 C      ELSE
        DO j=1-Oly,sNy+Oly-1
         DO i=1-Olx,sNx+Olx-1   
-            Siso(i,j) = temp_2D(i,j)
+            Siso(i,j) = MIN(temp_2D(i,j),GM_maxSlope)
+            Siso(i,j) = MAX(Siso(i,j),-GM_maxSlope)
         ENDDO
        ENDDO     
 C      ENDIF
-            
+           
+
 #ifdef ALLOW_DIAGNOSTICS
 C     Diagnostics
       IF ( useDiagnostics ) THEN
@@ -490,6 +492,10 @@ C     Diagnostics
         CALL DIAGNOSTICS_FILL(Siso,   'ReANN_I3',0,1,2,bi,bj,myThid)
         CALL DIAGNOSTICS_FILL(beta_t, 'ReANN_I4',0,1,2,bi,bj,myThid)
         CALL DIAGNOSTICS_FILL(Ld,     'ReANN_I6',0,1,2,bi,bj,myThid)
+      CALL DIAGNOSTICS_FILL(dSigmaDyZint,'ReANN_I7',0,1,2,bi,bj,myThid)
+      CALL DIAGNOSTICS_FILL(dSigmaDrZint,'ReANN_I8',0,1,2,bi,bj,myThid)
+      CALL DIAGNOSTICS_FILL(sigmaY,      'ReANN_I5',0,Nr,2,bi,bj,myThid)
+      CALL DIAGNOSTICS_FILL(sigmaR,      'ReANN_I9',0,Nr,2,bi,bj,myThid)
       ENDIF
 #endif
 
@@ -586,6 +592,18 @@ C      ENDDO
       ENDIF       
       
         
+      
+      
+      ELSEIF(UseDiagUpVp) THEN    
+     
+      DO k=1,Nr
+      DO j=1-OLy,sNy+OLy
+       DO i=1-OLx,sNx+OLx  
+          UpVp_ML(i,j,k,bi,bj) = DiagUpVp(i,j,k,bi,bj)
+        ENDDO
+      ENDDO   
+      ENDDO      
+           
 
 C   ENDIF for IF ( UpVp_useML )
       ENDIF
@@ -597,7 +615,7 @@ C   ENDIF for IF ( UpVp_useML )
       
 C     ----------      Kgm part     ------------
    
-      IF ( .NOT. GM_useML ) THEN
+      IF ( .NOT. (GM_useML .OR. UseDiagKgm)) THEN
       DO k=1,Nr
        DO j=1-Oly,sNy+Oly
         DO i=1-Olx,sNx+Olx
@@ -605,6 +623,30 @@ C     ----------      Kgm part     ------------
         ENDDO
        ENDDO
       ENDDO 
+      
+      ELSEIF(UseDiagKgm) THEN
+      
+      DO k=1,Nr
+       DO j=1-Oly,sNy+Oly
+        DO i=1-Olx,sNx+Olx
+C            IF (DiagKgm(i,j,k,bi,bj) .LE. 0.0 _d 0) THEN
+C               GM_ML_temp(i,j,k) = GM_ML_maxVal_K
+C            else
+                GM_ML_temp(i,j,k) = DiagKgm(i,j,k,bi,bj)
+C            endif
+             GM_ML_temp(i,j,k) 
+     &                = MIN(GM_ML_temp(i,j,k),GM_ML_maxVal_K)
+             GM_ML_temp(i,j,k) 
+     &                = MAX(GM_ML_temp(i,j,k),GM_ML_minVal_K)     
+        ENDDO
+       ENDDO
+      ENDDO 
+      
+      
+          
+             
+             
+             
       
       ELSE
          
@@ -654,7 +696,8 @@ C     No bound is set for the predicted value of E
            ENDIF
         ENDDO
        ENDDO
-      ENDDO
+        ENDDO
+
 
         
 C  Deal with extrem values in E_ML   
@@ -721,11 +764,7 @@ C     5-point running smooth
       ENDDO
       
       ENDIF  
-      
-      
-      
-        
-        
+              
         
         
 C    Calculate depth-averaged EKE or E, and Ue
@@ -749,8 +788,10 @@ C         The minus sign is because r_Low<0
           Ue(i,j)=sqrt(2.0*E_ML_zavg(i,j)) 
        ENDDO
        ENDDO
-       ENDIF
-       
+C ENDIF for ((GM_useML .AND. GM_MLEner) .OR. REDI_useML)       
+      ENDIF
+ 
+      
       IF(GM_useML .AND. GM_MLEner .AND. Prograde) THEN
 C Traditional scalings for Kgm in prograde flows                       
 
@@ -853,6 +894,9 @@ C            Enforce lower and upper bounds on the diffusivity
       ELSE
 C  Compute Kgm using slope-aware mixing length theory (Slope parameter)
 
+      IF(GM_SlopeAware) THEN
+C     Slope-aware form  
+          
 C     Compute slope parameter
         DO j=1-Oly+1,sNy+Oly-1
          DO i=1-Olx,sNx+Olx-1
@@ -863,8 +907,9 @@ C     Compute slope parameter
           ENDIF
          ENDDO
         ENDDO    
-        
-C    predict kgm
+     
+      IF(GM_UeLrh) THEN  
+C    predict kgm via mixing length theory
       DO k=1,Nr
        DO j=1-Oly+3,sNy+Oly-3
         DO i=1-Olx,sNx+Olx-1   
@@ -885,11 +930,113 @@ C            Enforce lower and upper bounds on the diffusivity
      &                = MAX(GM_ML_temp(i,j,k),GM_ML_minVal_K)        
            ENDDO
        ENDDO
-       ENDDO          
+      ENDDO   
+      
+      ELSE
+C     predict kgm via GEOMETRIC
 
+        DO j=1-Oly,sNy+Oly-1
+         DO i=1-Olx,sNx+Olx-1
+          IF ( dSigmaDrZint(i,j).NE. 0.0 _d 0 ) THEN  
+          Ri(i,j)= -fCori(i,j,bi,bj)**2*r_Low(i,j,bi,bj)
+     &              *abs(dSigmaDrZint(i,j)
+     &              /(dSigmaDxZint(i,j)**2+dSigmaDyZint(i,j)**2
+     &               *gravity*recip_rhoConst)) 
+          ELSE
+          Ri(i,j) = 0.0 _d 0
+          ENDIF
+         ENDDO
+        ENDDO    
+       
+      DO k=1,Nr
+       DO j=1-Oly+3,sNy+Oly-3
+        DO i=1-Olx,sNx+Olx-1   
+         
+         GM_ML_temp(i,j,k) 
+     &       = 8.0 _d -3
+     &         *(1.35*tanh(0.1*abs(delta(i,j)))+1/(abs(delta(i,j))+0.1))
+     &         *sqrt(Ri(i,j))/fCori(i,j,bi,bj)*3*E_ML_zavg(i,j);
+         
+C            Enforce lower and upper bounds on the diffusivity
+             GM_ML_temp(i,j,k) 
+     &                = MIN(GM_ML_temp(i,j,k),GM_ML_maxVal_K)
+             GM_ML_temp(i,j,k) 
+     &                = MAX(GM_ML_temp(i,j,k),GM_ML_minVal_K)        
+           ENDDO
+       ENDDO
+      ENDDO 
+
+
+      ENDIF
+       
+      
+      
+      
+      
+      
+      ELSE
+C     Non slope-aware form      
+          
+       IF(GM_UeLrh) THEN    
+      DO k=1,Nr
+       DO j=1-Oly+3,sNy+Oly-3
+        DO i=1-Olx,sNx+Olx-1   
+                   
+         GM_ML_temp(i,j,k) 
+     &        =   1.3 _d -2 * Ue(i,j)*Lrhines(i,j)
+         
+C            Enforce lower and upper bounds on the diffusivity
+             GM_ML_temp(i,j,k) 
+     &                = MIN(GM_ML_temp(i,j,k),GM_ML_maxVal_K)
+             GM_ML_temp(i,j,k) 
+     &                = MAX(GM_ML_temp(i,j,k),GM_ML_minVal_K)        
+           ENDDO
+       ENDDO
+      ENDDO  
+        
+       ELSE
+C     predict kgm via GEOMETRIC
+
+        DO j=1-Oly,sNy+Oly-1
+         DO i=1-Olx,sNx+Olx-1
+          IF ( dSigmaDrZint(i,j).NE. 0.0 _d 0 ) THEN  
+          Ri(i,j)= -fCori(i,j,bi,bj)**2*r_Low(i,j,bi,bj)
+     &              *abs(dSigmaDrZint(i,j)
+     &              /(dSigmaDxZint(i,j)**2+dSigmaDyZint(i,j)**2
+     &               *gravity*recip_rhoConst)) 
+          ELSE
+          Ri(i,j) = 0.0 _d 0
+          ENDIF
+         ENDDO
+        ENDDO    
+       
+      DO k=1,Nr
+       DO j=1-Oly+3,sNy+Oly-3
+        DO i=1-Olx,sNx+Olx-1   
+         
+         GM_ML_temp(i,j,k) 
+     &       = 3.16 _d -2
+     &         *sqrt(Ri(i,j))/fCori(i,j,bi,bj)*E_ML_zavg(i,j);
+         
+C            Enforce lower and upper bounds on the diffusivity
+             GM_ML_temp(i,j,k) 
+     &                = MIN(GM_ML_temp(i,j,k),GM_ML_maxVal_K)
+             GM_ML_temp(i,j,k) 
+     &                = MAX(GM_ML_temp(i,j,k),GM_ML_minVal_K)        
+           ENDDO
+       ENDDO
+      ENDDO 
+      
+C   ENDIF for (GM_UeLrh)            
+       ENDIF
+       
+C   ENDIF for (GM_SlopeAware)              
+       ENDIF   
+
+C   ENDIF for (GM_Burger)     
        ENDIF
      
-C ENDIF for prograde or retrograde          
+C ENDIF for (GM_useML .AND. GM_MLEner .AND. Prograde)      
        ENDIF
       
 #ifdef ALLOW_DIAGNOSTICS
@@ -990,18 +1137,22 @@ C     Diagnostics
       ENDIF
 
       
-      IF ( GM_useML ) THEN 
+      IF ( GM_useML .OR. UseDiagKgm) THEN 
       IF ( SmoothKgm ) THEN 
 C  Cannot smooth Kgm when EKE is already smoothed        
           DO k=1,Nr
            DO j=1-Oly+2,sNy+Oly-2
-            DO i=1-Olx,sNx+Olx-1     
+            DO i=1-Olx,sNx+Olx    
              GM_ML_k(i,j,k,bi,bj) = ( GM_ML_temp(i,j,k)*1. _d 0
      &                + GM_ML_temp(i,j-1,k)*maskC(i,j-1,k,bi,bj)
-     &                + GM_ML_temp(i,j+1,k)*maskC(i,j+1,k,bi,bj))
+     &                + GM_ML_temp(i,j+1,k)*maskC(i,j+1,k,bi,bj)
+     &                + GM_ML_temp(i,j-2,k)*maskC(i,j-2,k,bi,bj)
+     &                + GM_ML_temp(i,j+2,k)*maskC(i,j+2,k,bi,bj))
      &               /( 1. _d 0
      &                 + maskC(i,j-1,k,bi,bj)
-     &                 + maskC(i,j+1,k,bi,bj))      
+     &                 + maskC(i,j+1,k,bi,bj)
+     &                 + maskC(i,j-2,k,bi,bj)
+     &                 + maskC(i,j+2,k,bi,bj))      
      &                 * maskC(i,j,k,bi,bj)
             ENDDO
            ENDDO
@@ -1010,9 +1161,9 @@ C  Cannot smooth Kgm when EKE is already smoothed
        ELSE
            
           DO k=1,Nr
-           DO j=1-Oly+3,sNy+Oly-3
-            DO i=1-Olx,sNx+Olx-1    
-             GM_ML_k(i,j,k,bi,bj) =   GM_ML_temp(i,j,k)
+           DO j=1-Oly,sNy+Oly
+            DO i=1-Olx,sNx+Olx  
+             GM_ML_k(i,j,k,bi,bj) =   GM_ML_temp(i,j,k)               
             ENDDO
            ENDDO
           ENDDO 

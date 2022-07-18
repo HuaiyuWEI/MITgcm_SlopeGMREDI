@@ -324,11 +324,11 @@ C# endif
       
       CALL EXCH_XYZ_RL(GM_ML_K, myThid)
     
-C      IF ( GM_useML) THEN
-C          joverlap = 2
+C      IF (GM_useML) THEN
+          joverlap = 2
 C         check     
 C      ELSE
-          joverlap = 1
+C          joverlap = 1
 C      ENDIF
       
 #endif /* ALLOW_GM_ML */
