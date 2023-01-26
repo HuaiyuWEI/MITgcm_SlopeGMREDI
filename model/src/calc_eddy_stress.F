@@ -55,7 +55,7 @@ C     Loop counters
       _RL DupvpDy_ML_temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly,Nr)
       _RL DupvpDy_ML_temp2(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
       _RL Depth_temp(1-Olx:sNx+Olx,1-Oly:sNy+Oly)
-      _RL temp2
+      _RL temp2, tempDepth, tempStruc 
 
 #ifdef ALLOW_EDDYPSI
 C     Interpolated stream function and coriolis
@@ -124,13 +124,12 @@ C-    end k loop
 
 
 
-C  Starts to calculate Du'v'/Dy
+C  Starts to calculate Reynolds stress (e.g., EMF divergence) 
+C  based on ANN-inferred EMF calculated by gmredi_calc_ML.F
 
 #ifdef ALLOW_GMREDI
-      IF ( UpVp_useML ) THEN
-
-
-      
+      IF ( UpVp_useML) THEN
+          
 C     Initialize        
       DO j=1-Oly,sNy+Oly
        DO i=1-Olx,sNx+Olx
@@ -139,10 +138,8 @@ C     Initialize
        ENDDO
       ENDDO      
      
-      
-      
-      
-C    Make a local copy of u'v'
+     
+C    Make a local copy of ANN-inferred EMF
       DO k=1,Nr
       DO j=1-OLy,sNy+OLy
        DO i=1-OLx,sNx+OLx    
@@ -167,12 +164,7 @@ C     Calculate meridional gradients of u'v' at U points
      &        *(UpVp_ML_temp(i-1,j,k)-UpVp_ML_temp(i-1,j-1,k))
      &         +MaskS(i-1,j+1,k,bi,bj)
      &        *_recip_dyC(i-1,j+1,bi,bj)
-     &        *(UpVp_ML_temp(i-1,j+1,k)-UpVp_ML_temp(i-1,j,k)))   
-C            Enforce lower and upper bounds 
-C             temp(i,j,k) = 
-C     &                     MIN(temp(i,j,k),DUpVpDy_ML_maxVal)
-C             temp(i,j,k) = 
-C     &                     MAX(temp(i,j,k),-DUpVpDy_ML_maxVal)        
+     &        *(UpVp_ML_temp(i-1,j+1,k)-UpVp_ML_temp(i-1,j,k)))       
         ENDDO
       ENDDO   
       ENDDO
@@ -194,26 +186,19 @@ C     kLowC   :: index of the r-lowest "wet cell" (2D)
       ENDDO             
               
  
-  
-      
-      
+   
+
+
       IF (LeftReplacement) THEN
+C     Replace any extreme value of the EMF divergence with the
+C     value on its nearest shoreward grid point.        
       
       
-      
-      
-      
-      
-      
-C   Send data of du'v'/dy from all processors to processor zero   
-      
+C   Send data of EMF divergence from all processors to processor zero       
       nproc=nPx*nPy
       call mpi_barrier(mpi_comm_world,ierror)
-
-      DO procNum=1, nproc-1
-               
+      DO procNum=1, nproc-1              
       IF (mpiMyId.eq.procNum.and.mpiMyId.ne.0.and.nproc.gt.1) THEN
-
       call mpi_send(temp(1:sNx,1:sNy,1:Nr),sNx*sNy*Nr,
      &              MPI_DOUBLE_PRECISION,0,
      &              procNum+1000,mpi_comm_world,ierror)              
@@ -225,42 +210,14 @@ C   Send data of du'v'/dy from all processors to processor zero
      &              procNum+1000,mpi_comm_world,stat,ierror)
       temp_Allproc(1:sNx,1:sNy,1:Nr)=temp(1:sNx,1:sNy,1:Nr)
       temp_Allproc(:,1+sNy*procNum:sNy+sNy*procNum,:)=temp_other(:,:,:)
-      ENDIF
-            
-
+      ENDIF         
       call mpi_barrier(mpi_comm_world,ierror)
-      ENDDO
-       
+      ENDDO   
       call mpi_barrier(mpi_comm_world,ierror)
 
       
-
-      
-      IF (mpiMyId.eq.0) THEN
-          
-C   Replcae extreme values of du'v'/dy(i,j,k) by the smaller value between
-C   position (i,j-1,k) and (i,j,k+1)
-C   This replacement procedure is done by processor zero          
-C      DO k=Nr,1,-1
-C      DO j=2,sNy*nPy
-C      DO i=1,sNx           
-C            IF(abs(temp_Allproc(i,j,k)) .GT. DUpVpDy_ML_maxVal) THEN
-C                
-C      kp1 = min(k+1,Nr)
-C      IF(abs(temp_Allproc(i,j-1,k)).GT.abs(temp_Allproc(i,j,kp1)) ) THEN
-C      temp_Allproc(i,j,k) = temp_Allproc(i,j,kp1)  
-C      ELSE
-C      temp_Allproc(i,j,k) = temp_Allproc(i,j-1,k)
-C      ENDIF    
-C      
-C            ENDIF
-C      ENDDO
-C      ENDDO   
-C      ENDDO  
-
-          
-          
-C   Replcae extreme values of du'v'/dy(i,j,k) by the values at the left grid (j-1)
+      IF (mpiMyId.eq.0) THEN     
+C   Replcae extreme values of EMF divergence by the values at the left grid (j-1)
 C   This replacement procedure is done by processor zero       
       DO k=1,Nr
       DO j=2,sNy*nPy
@@ -271,35 +228,23 @@ C   This replacement procedure is done by processor zero
       ENDDO
       ENDDO
       ENDDO
-
-         
-         
+               
       DO k=1,Nr
       DO j=1,sNy+OLy
       DO i=1-OLx,sNx+OLx
       temp_new(i,j,k) = temp_Allproc(1,j,k)
       ENDDO
       ENDDO   
-      ENDDO
-      
-     
-      ENDIF
-
+      ENDDO      
+      ENDIF      
       call mpi_barrier(mpi_comm_world,ierror)
+       
 
-        
-
-C   send the modified du'v'/dy to other processors
-     
-       call mpi_bcast(temp_Allproc,sNx*sNy*nPy*Nr,MPI_DOUBLE_PRECISION,
-     &                0,mpi_comm_world,ierror)
-      
-
-           
+C   send the modified EMF divergence to other processors    
+      call mpi_bcast(temp_Allproc,sNx*sNy*nPy*Nr,MPI_DOUBLE_PRECISION,
+     &                0,mpi_comm_world,ierror)          
       call mpi_barrier(mpi_comm_world,ierror)
-
-           
-           
+          
       IF (mpiMyId.ne.0.and.mpiMyId.ne.nproc-1) THEN
       DO k=1,Nr
       DO j=1-OLy,sNy+OLy
@@ -319,21 +264,15 @@ C   send the modified du'v'/dy to other processors
       ENDDO   
       ENDDO               
           
-      ENDIF
-      
+      ENDIF  
       call mpi_barrier(mpi_comm_world,ierror)
     
-      
-      
-      
-      
-      
-      
-      
+     
       
       
       ELSE
-          
+C  Simply bound the EMF divergence
+
       DO k=1,Nr
       DO j=1-OLy+1,sNy+OLy-1
       DO i=1-OLx+1,sNx+OLx         
@@ -346,37 +285,7 @@ C   send the modified du'v'/dy to other processors
           
       ENDIF
       
-      
-
-
     
-     
-C Use the mean value of surrounding points to replace extreme values in Du'v'/Dy
-C      DO k=1,Nr
-C       DO j=1-Oly+2,sNy+Oly-2
-C        DO i=1-Olx+1,sNx+Olx
-C        IF (k.LE.kLowC(i,j,bi,bj)) THEN
-C              kp1 = min(k+1,Nr)
-C              km1 = max(k-1,1)
-C              temp2 = ( temp(i,j-1,k)*maskC(i,j-1,k,bi,bj)
-C     &                + temp(i,j+1,k)*maskC(i,j+1,k,bi,bj)
-C     &                + temp(i,j,kp1)*maskC(i,j,kp1,bi,bj)              
-C     &                + temp(i,j,km1)*maskC(i,j,km1,bi,bj))
-C     &               /(  maskC(i,j-1,k,bi,bj)
-C     &                 + maskC(i,j+1,k,bi,bj)
-C     &                 + maskC(i,j,kp1,bi,bj)
-C     &                 + maskC(i,j,km1,bi,bj))      
-C     &                 * maskC(i,j,k,bi,bj)
-C              IF (abs(temp(i,j,k)) .GT. 2*abs(temp2)
-C     &         .AND. maskC(i,j,k,bi,bj) .NE. 0. _d 0) THEN
-C                     temp(i,j,k)=temp2
-C              ENDIF
-C        ENDIF   
-C        ENDDO
-C       ENDDO
-C      ENDDO
-      
-      
               
 C     Options to use depth-dependent or depth-mean version of predicted
 C     Reynolds stress. The depth-dependet version is problematic if 
@@ -385,36 +294,16 @@ C     Uz is included in the ANN inputs for u'v'
       IF ( UpVp_VertStruc ) THEN
 C     Depth-dependent version   
           
-C      DO k=1,Nr
-C       DO j=1-Oly+2,sNy+Oly-2
-C        DO i=1-Olx+1,sNx+Olx       
-C      DupvpDy_ML_temp(i,j,k) = temp(i,j,k)
-C         ENDDO
-C       ENDDO
-C      ENDDO
-                
-      
-C     Smooth DupvpDy vertically       
-       DO k=1,Nr
-       kp1 = min(k+1,Nr)
-       km1 = max(k-1,1)
-       DO j=1-Oly+1,sNy+Oly-1
-        DO i=1-Olx+1,sNx+Olx     
-       DupvpDy_ML_temp(i,j,k) = ( temp(i,j,k)*1. _d 0*drF(k)
-     &            + temp(i,j,kp1)*maskC(i,j,kp1,bi,bj)*drF(kp1)
-     &            + temp(i,j,km1)*maskC(i,j,km1,bi,bj)*drF(km1))
-     &               /( 1. _d 0*drF(k)
-     &                 + maskC(i,j,kp1,bi,bj)*drF(kp1)
-     &                 + maskC(i,j,km1,bi,bj)*drF(km1))      
-     &                 * maskC(i,j,k,bi,bj)
-        ENDDO
+      DO k=1,Nr
+       DO j=1-Oly,sNy+Oly
+        DO i=1-Olx+1,sNx+Olx       
+      DupvpDy_ML_temp(i,j,k) = temp_new(i,j,k)
+         ENDDO
        ENDDO
-      ENDDO   
-      
+      ENDDO                     
 
       ELSE
-C     Depth-mean version             
-C      DO k=3,Nr     
+C     Depth-mean version                
       DO k=1,Nr   
        DO j=1,sNy        
         DO i=1-Olx+1,sNx+Olx
@@ -455,8 +344,35 @@ C this means OLy should be larger or equal to 3
 C     &                             *(4000-abs(rC(k)))/2000
           ENDDO
        ENDDO 
-      ENDDO  
-      ELSE
+       ENDDO  
+      
+       
+      ELSEIF(UpVp_Efold) THEN 
+C Add an artificial vertical structure for u'v' with e-folding depth 400 m                   
+      DO j=1-OLy+2,sNy+OLy-2
+       DO i=1-OLx+1,sNx+OLx                 
+              tempDepth  = 0. _d 0
+              tempStruc  = 0. _d 0    
+           DO k=1,Nr
+              tempDepth = tempDepth + drF(k)*hfacC(i,j,k,bi,bj)
+              tempStruc = tempStruc + exp(-abs(rC(k))/400)
+     &                               *drF(k)*hfacC(i,j,k,bi,bj)
+           ENDDO       
+           IF ( tempStruc.NE. 0. _d 0 ) THEN   
+           DO k=1,Nr    
+          DupvpDy_ML(i,j,k,bi,bj) = DupvpDy_ML_temp(i,j,k)
+     &                             *exp(-abs(rC(k))/400)
+     &                             *tempDepth/tempStruc
+           ENDDO     
+           ELSE         
+           DO k=1,Nr    
+           DupvpDy_ML(i,j,k,bi,bj) = 0. _d 0
+           ENDDO
+           ENDIF                 
+      ENDDO   
+      ENDDO    
+  
+       ELSE
           
       DO k=1,Nr
       DO j=1-OLy+2,sNy+OLy-2
@@ -466,6 +382,7 @@ C     &                             *(4000-abs(rC(k)))/2000
         ENDDO
       ENDDO   
       ENDDO
+      
       ENDIF   
       
       
@@ -477,7 +394,6 @@ C     Diagnostics
       IF ( useDiagnostics ) THEN
       CALL DIAGNOSTICS_FILL(UpVp_ML_temp,'UpVp_ML ',0,Nr,2,bi,bj,myThid)
       CALL DIAGNOSTICS_FILL(temp_new,'DupvpDy2',0,Nr,2,bi,bj,myThid)
-C      CALL DIAGNOSTICS_FILL(DupvpDy_ML,'DupvpDy ',0,Nr,1,bi,bj,myThid)
       ENDIF
 #endif
 
