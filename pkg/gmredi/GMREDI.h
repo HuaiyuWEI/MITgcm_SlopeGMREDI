@@ -42,22 +42,16 @@ C     GM_useLeithQG    :: add Leith QG viscosity to GMRedi tensor
       LOGICAL GM_K3D_smooth
       LOGICAL GM_useLeithQG
       LOGICAL GM_useML
-      LOGICAL GM_NoParCel
       LOGICAL REDI_useML
-      LOGICAL GM_MLEner
-      LOGICAL GM_Burger
       LOGICAL GM_SlopeAware
       LOGICAL GM_UeLrh
       LOGICAL UpVp_useML
       LOGICAL UpVp_VertStruc
       LOGICAL SmoothUpVp
-      LOGICAL SmoothKgm
       LOGICAL SmoothDUpVpDy
       LOGICAL SmoothEner
       LOGICAL LeftReplacement
-      LOGICAL Prograde
-      LOGICAL UseDiagKgm
-      LOGICAL UseDiagUpVp
+      LOGICAL UpVp_Efold
       COMMON /GM_PARAMS_L/
      &                   GM_AdvForm, GM_AdvSeparate,
      &                   GM_useBVP,  GM_useSubMeso,
@@ -66,12 +60,12 @@ C     GM_useLeithQG    :: add Leith QG viscosity to GMRedi tensor
      &                   GM_useK3D, GM_K3D_smooth, GM_K3D_use_constK,
      &                   GM_K3D_beta_eq_0, GM_K3D_ThickSheet,
      &                   GM_K3D_surfK, GM_K3D_constRedi, GM_useLeithQG,
-     &                   GM_useML, REDI_useML, GM_MLEner, GM_Burger,
-     &                   GM_NoParCel, UpVp_useML, UpVp_VertStruc,
-     &                   Prograde, SmoothDUpVpDy, LeftReplacement,
-     &                   SmoothUpVp, SmoothKgm, SmoothEner,
-     &                   GM_SlopeAware, GM_UeLrh, UseDiagKgm,
-     &                   UseDiagUpVp
+     &                   GM_useML, REDI_useML,
+     &                   UpVp_useML, UpVp_VertStruc,
+     &                   SmoothDUpVpDy, LeftReplacement,
+     &                   SmoothUpVp, SmoothEner,
+     &                   GM_SlopeAware, GM_UeLrh,
+     &                   UpVp_Efold
 
 C--   GM/Redi Integer-type parameters
 C     GM_BVP_modeNumber :: vertical mode number used for speed "c" in BVP transport
@@ -180,18 +174,10 @@ C     GM_K3D_maxRenorm:: maximum value for the renormalisation factor
       _RL subMeso_invTau
       _RL subMeso_LfMin
       _RS subMeso_Lmax
+      _RL ANN_maxSlope
       _RL GM_ML_minVal_K
       _RL GM_ML_maxVal_K
 
-      _RL GM_ML_w1(32,64)
-      _RL GM_ML_w2(1,32)
-      _RL GM_ML_b0(64,1)
-      _RL GM_ML_b1(32,1)
-      _RL GM_ML_b2(1,1)
-
-C C GM_VertStrucFlag
-      _RL GM_ML_w0(64, 4)
-      _RL GM_ML_normal(1, 5)
 
       _RL UpVp_ML_w1(32, 64)
       _RL UpVp_ML_w2(1, 32)
@@ -206,10 +192,12 @@ C C GM_VertStrucFlag
       _RL E_ML_b0(64, 1)
       _RL E_ML_b1(32, 1)
       _RL E_ML_b2(1, 1)
-C InputFlag
+
       _RL UpVp_ML_w0(64, 6)
       _RL E_ML_w0(64, 6)
       _RL E_ML_normal(1, 7)
+
+      _RL GEOM_Alpha0
 
       COMMON /GM_PARAMS_RL/
      &                   GM_isopycK, GM_background_K,
@@ -225,21 +213,20 @@ C InputFlag
      &                   GM_K3D_EadyMaxDepth, GM_K3D_Lambda,
      &                   GM_K3D_smallK, GM_K3D_maxC,
      &                   GM_maxK3D, GM_K3D_minCori, GM_K3D_minN2, 
-     &                   GM_ML_minN2,
+     &                   GM_ML_minN2, ANN_maxSlope,
      &                   GM_K3D_surfMinDepth, GM_K3D_Rmax, GM_K3D_Rmin,
      &                   GM_K3D_constK, GM_K3D_vecFreq,
      &                   GM_K3D_minRenorm, GM_K3D_maxRenorm,
      &                   GM_facTrL2dz, GM_facTrL2ML, GM_maxTransLay,
      &                   GM_Scrit, GM_Sd, GM_BVP_cMin,
      &                   subMeso_Ceff, subMeso_invTau, subMeso_LfMin,
-     &                   GM_ML_w0, GM_ML_w1, GM_ML_w2,
-     &                   GM_ML_b0, GM_ML_b1, GM_ML_b2,
      &                   UpVp_ML_w0, UpVp_ML_w1, UpVp_ML_w2,
      &                   UpVp_ML_b0, UpVp_ML_b1, UpVp_ML_b2,
      &                   UpVp_ML_maxVal, DUpVpDy_ML_maxVal,
-     &                   E_ML_normal, GM_ML_normal,
+     &                   E_ML_normal, 
      &                   E_ML_w0, E_ML_w1, E_ML_w2,
-     &                   E_ML_b0, E_ML_b1, E_ML_b2
+     &                   E_ML_b0, E_ML_b1, E_ML_b2,
+     &                   GEOM_Alpha0
 
       COMMON /GM_PARAMS_RS/
      &                   subMeso_Lmax

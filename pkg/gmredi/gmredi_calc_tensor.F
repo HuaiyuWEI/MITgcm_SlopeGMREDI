@@ -307,16 +307,7 @@ C   Use Leith QG viscosity in GMRedi scheme
 
 
 #ifdef ALLOW_GM_ML
-C# ifdef ALLOW_AUTODIFF
-C      DO k=1,Nr
-C        DO j=1-OLy,sNy+OLy
-C          DO i=1-OLx,sNx+OLx
-C            GM_ML_K(i,j,k,bi,bj) = 0. _d 0
-C            REDI_ML_K(i,j,k,bi,bj) = 0. _d 0
-C          ENDDO
-C        ENDDO
-C      ENDDO
-C# endif 
+
       CALL GMREDI_CALC_ML(
      I                sigmaX,sigmaY,sigmaR,
      I                bi, bj, myTime, myIter, myThid )
@@ -632,8 +623,6 @@ CADJ STORE Kwz(:,:,k,bi,bj) = comlev1_bibj_k, key=kkey, byte=isbyte
      &                           + GM_LeithQG_K(i,j,km1,bi,bj) )
 #endif
 #ifdef ALLOW_GM_ML
-C     &                     + op5*( GM_ML_K(i,j,k,bi,bj)
-C     &                           + GM_ML_K(i,j,km1,bi,bj) )
      &                     + op5*( REDI_ML_K(i,j,k,bi,bj)
      &                           + REDI_ML_K(i,j,km1,bi,bj) )
 #endif
@@ -798,7 +787,6 @@ c      IF ( GM_nonUnitDiag ) THEN
      &     +op5*(GM_LeithQG_K(i,j,k,bi,bj)+GM_LeithQG_K(i-1,j,k,bi,bj))
 #endif
 #ifdef ALLOW_GM_ML
-C     &     +op5*(GM_ML_K(i,j,k,bi,bj)+GM_ML_K(i-1,j,k,bi,bj))
      &     +op5*(REDI_ML_K(i,j,k,bi,bj)+REDI_ML_K(i-1,j,k,bi,bj))
 #endif
 #if ((defined GM_K3D) && ! (defined GM_K3D_PASSIVE))
@@ -902,8 +890,6 @@ C         store in tmp1k Kuz_Redi
      &          + GM_LeithQG_K(i-1,j,k,bi,bj) )
 #endif
 #ifdef ALLOW_GM_ML
-C     &     +op5*( GM_ML_K(i,j,k,bi,bj)
-C     &          + GM_ML_K(i-1,j,k,bi,bj) )
      &     +op5*( REDI_ML_K(i,j,k,bi,bj)
      &          + REDI_ML_K(i-1,j,k,bi,bj) )
 #endif
@@ -1049,7 +1035,6 @@ c      IF ( GM_nonUnitDiag ) THEN
      &     +op5*(GM_LeithQG_K(i,j,k,bi,bj)+GM_LeithQG_K(i,j-1,k,bi,bj))
 #endif
 #ifdef ALLOW_GM_ML
-C     &     +op5*(GM_ML_K(i,j,k,bi,bj)+GM_ML_K(i,j-1,k,bi,bj))
      &     +op5*(REDI_ML_K(i,j,k,bi,bj)+REDI_ML_K(i,j-1,k,bi,bj))
 #endif
 #if ((defined GM_K3D) && ! (defined GM_K3D_PASSIVE))
@@ -1153,8 +1138,6 @@ C         store in tmp1k Kvz_Redi
      &          + GM_LeithQG_K(i,j-1,k,bi,bj) )
 #endif
 #ifdef ALLOW_GM_ML
-C     &     +op5*( GM_ML_K(i,j,k,bi,bj)
-C     &          + GM_ML_K(i,j-1,k,bi,bj) )
      &     +op5*( REDI_ML_K(i,j,k,bi,bj)
      &          + REDI_ML_K(i,j-1,k,bi,bj) )
 #endif
@@ -1264,67 +1247,7 @@ C     &                          deltaTClock, bi, bj, myThid )
       ENDIF
 #endif /* ALLOW_TIMEAVE */
 
-
-       IF ( GM_NoParCel) THEN
-C Artifically set K = 0 in partial cells for stability.
-C      DO k=2,Nr
-C       DO j=1-OLy+1,sNy+OLy-1
-C        DO i=1-OLx+1,sNx+OLx-1
-C         IF(hFacC(i,j,k,bi,bj)*hFacC(i,j,k-1,bi,bj)*hFacS(i,j,k,bi,bj)
-C     &         *hFacW(i,j,k,bi,bj) .NE. 1. _d 0) THEN
-C         Kwx(i,j,k,bi,bj) = 0. _d 0
-C         Kwy(i,j,k,bi,bj) = 0. _d 0
-C         Kwz(i,j,k,bi,bj) = 0. _d 0
-C         Kux(i,j,k,bi,bj) = 0. _d 0
-C         Kvy(i,j,k,bi,bj) = 0. _d 0
-C# ifdef GM_EXTRA_DIAGONAL
-C         Kuz(i,j,k,bi,bj) = 0. _d 0
-C         Kvz(i,j,k,bi,bj) = 0. _d 0
-C# endif
-C         ENDIF
-C        ENDDO
-C       ENDDO
-C      ENDDO
-      
-      
-      DO k=2,Nr
-       DO j=1-OLy+1,sNy+OLy-1
-        DO i=1-OLx+1,sNx+OLx-1
-         IF(hFacC(i,j,k,bi,bj)*hFacC(i,j,k-1,bi,bj) .NE. 1. _d 0) THEN
-         Kwx(i,j,k,bi,bj) = 0. _d 0
-         Kwy(i,j,k,bi,bj) = 0. _d 0
-         ENDIF
-        ENDDO
-       ENDDO
-      ENDDO
-
-      DO k=1,Nr
-       DO j=1-OLy+1,sNy+OLy-1
-        DO i=1-OLx+1,sNx+OLx-1
-         IF(hFacS(i,j,k,bi,bj) .NE.  1. _d 0) THEN
-         Kvy(i,j,k,bi,bj) = 0. _d 0
-# ifdef GM_EXTRA_DIAGONAL
-         Kvz(i,j,k,bi,bj) = 0. _d 0
-# endif
-         ENDIF
-        ENDDO
-       ENDDO
-      ENDDO
-
-      DO k=1,Nr
-       DO j=1-OLy+1,sNy+OLy-1
-        DO i=1-OLx+1,sNx+OLx-1
-         IF(hFacW(i,j,k,bi,bj) .NE.  1. _d 0) THEN
-         Kux(i,j,k,bi,bj) = 0. _d 0
-# ifdef GM_EXTRA_DIAGONAL
-         Kuz(i,j,k,bi,bj) = 0. _d 0
-# endif
-         ENDIF
-        ENDDO
-       ENDDO
-      ENDDO      
-          
-      ENDIF      
+     
       
       
 #ifdef ALLOW_DIAGNOSTICS

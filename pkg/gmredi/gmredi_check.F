@@ -63,14 +63,7 @@ CEOP
      &                      SQUEEZE_RIGHT, myThid )
         GM_useLeithQG = .FALSE.
        ENDIF
-
-      IF ( GM_useML .AND. size(GM_ML_w1) .NE. 2048) THEN
-        WRITE(msgBuf,'(2A,I3)') '** WARNING ** GMREDI_CHECK: ',
-     &   'Input Neural Network has potential errors, check weight size.'
-        CALL PRINT_MESSAGE( msgBuf, errorMessageUnit,
-     &                      SQUEEZE_RIGHT, myThid )
-        errCount = errCount + 1
-       ENDIF  
+ 
        
 C- print out some kee parameters :
        CALL WRITE_0D_L( GM_AdvForm, INDEX_NONE,

@@ -599,6 +599,14 @@ c     IF ( useDiagnotics ) THEN
         CALL DIAGNOSTICS_ADDTOLIST( diagNum,
      I    diagName, diagCode, diagUnits, diagTitle, 0, myThid )
 
+        diagName  = 'GMANN_I5'
+        diagTitle = 'Input 05 in kappa_GM Neural Network'
+        diagUnits = 'none            '
+        diagCode  = 'SM      MR      '
+        CALL DIAGNOSTICS_ADDTOLIST( diagNum,
+     I  diagName, diagCode, diagUnits, diagTitle, 0, myThid )
+
+
         diagName  = 'EKEANNI1'
         diagTitle = 'Input 01 in EKE Neural Network'
         diagUnits = 'none            '

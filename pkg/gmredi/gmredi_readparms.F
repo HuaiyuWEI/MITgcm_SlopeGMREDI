@@ -73,21 +73,19 @@ C     GM_slopeSqCutoff :: slope^2 cut-off value
      &          GM_K3D_constRedi, GM_K3D_minRenorm,
      &          GM_K3D_maxRenorm, GM_useLeithQG,
      &          GM_ML_minVal_K, GM_ML_maxVal_K, REDI_useML,
-     &          GM_ML_minN2, GM_useML, GM_MLEner, GM_Burger,
-     &          GM_NoParCel, LeftReplacement,
-     &          GM_ML_w0, GM_ML_w1, GM_ML_w2,
-     &          GM_ML_b0, GM_ML_b1, GM_ML_b2,
+     &          GM_ML_minN2, GM_useML,
+     &          LeftReplacement,
      &          UpVp_useML, SmoothUpVp, 
      &          UpVp_ML_maxVal, DUpVpDy_ML_maxVal,
      &          UpVp_ML_w0, UpVp_ML_w1, UpVp_ML_w2,
      &          UpVp_ML_b0, UpVp_ML_b1, UpVp_ML_b2,
-     &          E_ML_normal, GM_ML_normal, Prograde,
+     &          E_ML_normal,
      &          E_ML_w0, E_ML_w1, E_ML_w2,
      &          E_ML_b0, E_ML_b1, E_ML_b2,
      &          UpVp_VertStruc, R_low_orig, 
-     &          SmoothKgm, SmoothDUpVpDy, SmoothEner,
-     &          GM_SlopeAware, GM_UeLrh, UseDiagKgm,
-     &          UseDiagUpVp
+     &          SmoothDUpVpDy, SmoothEner,
+     &          GM_SlopeAware, GM_UeLrh,
+     &          UpVp_Efold, GEOM_Alpha0, ANN_maxSlope
 
 C---+----1----+----2----+----3----+----4----+----5----+----6----+----7-|--+----|
 
@@ -110,6 +108,7 @@ C--   Default values GM/Redi
       GM_isopycK          = 0. _d 0
       GM_background_K     = 0. _d 0
       GM_maxSlope         = 1. _d -2
+      ANN_maxSlope        = 1. _d -1
       GM_Kmin_horiz       = 0. _d 0
       GM_Small_Number     = 1. _d -20
       GM_slopeSqCutoff    = 1. _d +48
@@ -129,21 +128,16 @@ C--   Default values GM/Redi
       GM_useLeithQG       = .FALSE.
       GM_useML            = .FALSE.
       REDI_useML          = .FALSE.
-      GM_NoParCel         = .FALSE.
-      GM_MLEner           = .FALSE.
-      GM_Burger           = .FALSE.
       GM_SlopeAware       = .FALSE.
-      GM_UeLrh            = .TRUE.
+      GM_UeLrh            = .FALSE.
       UpVp_useML          = .FALSE.
       SmoothUpVp          = .FALSE.
       UpVp_VertStruc      = .FALSE.
-      SmoothKgm           = .FALSE.
       SmoothDUpVpDy       = .FALSE.
       SmoothEner          = .FALSE.
       LeftReplacement     = .FALSE.
-      Prograde            = .FALSE.
-      UseDiagKgm          = .FALSE.
-      UseDiagUpVp         = .FALSE.
+      UpVp_Efold          = .FALSE.
+      GEOM_Alpha0         = 7. _d -2
 C     Load water depth and ignore hFacMin constrain
 C     This is necessary for obtaining smooth topographic slope 
       CALL READ_REC_XY_RS( bathyFile, R_low_orig, 1, 0, myThid )
@@ -228,13 +222,11 @@ C     Close the open data file
 
      
 
-      IF (GM_useML .AND. GM_MLEner .OR. REDI_useML) THEN
+      IF (GM_useML) THEN
           
       OPEN(UNIT = 81,file="E_w_0.txt")
-      DO i = 1,64
-C InputFlag          
+      DO i = 1,64         
       READ(81,*) (E_ML_w0(i,j),j=1,6)
-C      READ(81,*) (E_ML_w0(i,j),j=1,5)
       ENDDO
       CLOSE(81)
       
@@ -266,65 +258,12 @@ C      READ(81,*) (E_ML_w0(i,j),j=1,5)
      
       ENDIF   
          
-      IF (GM_useML .AND. .NOT. GM_MLEner) THEN    
-          
-C GM_VertStrucFlag
-          
-      OPEN(UNIT = 101,file="GM_w_0.txt")
-      DO i = 1,64
-C     READ(101,*) (GM_ML_w0(i,j),j=1,6)
-      READ(101,*) (GM_ML_w0(i,j),j=1,4)
-      ENDDO
-      CLOSE(101)  
-        
-      OPEN(UNIT = 102,file="GM_w_1.txt")
-      DO i = 1,32
-      READ(102,*) (GM_ML_w1(i,j),j=1,64)
-      ENDDO
-      CLOSE(102)
-      
-      OPEN(UNIT = 103,file="GM_w_2.txt")
-      READ(103,*) (GM_ML_w2(1,j),j=1,32)
-      CLOSE(103)
-       
-      OPEN(UNIT = 104,file="GM_b_0.txt")
-      DO i = 1,64
-      READ(104,*) GM_ML_b0(i,1)
-      ENDDO
-      CLOSE(104)     
-      
-      OPEN(UNIT = 105,file="GM_b_1.txt")
-      DO i = 1,32
-      READ(105,*) GM_ML_b1(i,1)
-      ENDDO
-      CLOSE(105) 
-      
-      OPEN(UNIT = 106,file="GM_b_2.txt")
-      READ(106,*) GM_ML_b2(1,1)
-      CLOSE(106) 
-      
-C GM_VertStrucFlag
-      
-      OPEN(UNIT = 107,file="GM_normal.txt")     
-C      READ(107,*) (GM_ML_normal(1,j),j=1,7)
-      READ(107,*) (GM_ML_normal(1,j),j=1,5)
-      CLOSE(107)
-
-
-      
-      WRITE(msgBuf,'(A)') ' GM_ML: finished reading weights and biases'
-      CALL PRINT_MESSAGE( msgBuf, standardMessageUnit,
-     &                    SQUEEZE_RIGHT , 1)
-      
-      ENDIF
       
       
       IF (UpVp_useML) THEN
       OPEN(UNIT = 51,file="UpVp_w_0.txt")
-      DO i = 1,64
-C InputFlag           
+      DO i = 1,64         
       READ(51,*) (UpVp_ML_w0(i,j),j=1,6)
-C      READ(51,*) (UpVp_ML_w0(i,j),j=1,5)
       ENDDO
       CLOSE(51)
       
@@ -355,28 +294,13 @@ C      READ(51,*) (UpVp_ML_w0(i,j),j=1,5)
       CLOSE(56) 
       ENDIF
       
-      IF (UpVp_useML .OR. GM_MLEner .OR. REDI_useML) THEN
-      OPEN(UNIT = 66,file="E_normal.txt")
-C InputFlag       
+      IF (UpVp_useML .OR. GM_useML ) THEN
+      OPEN(UNIT = 66,file="E_normal.txt")     
       READ(66,*) (E_ML_normal(1,j),j=1,7)
-C      READ(66,*) (E_ML_normal(1,j),j=1,6)
       CLOSE(66)
       ENDIF
        
-      IF (REDI_useML) THEN
-      CALL READ_REC_XYZ_RS( 'Lw.bin', Lw, 1, 0, myThid )
-      _EXCH_XYZ_RS(Lw, myThid )
-      ENDIF
-      
-      IF (UseDiagKgm) THEN
-      CALL READ_REC_XYZ_RS( 'DiagKgm.bin', DiagKgm, 1, 0, myThid )
-      _EXCH_XYZ_RS(DiagKgm, myThid )
-      ENDIF      
-      
-      IF (UseDiagUpVp) THEN
-      CALL READ_REC_XYZ_RS( 'DiagUpVp.bin', DiagUpVp, 1, 0, myThid )
-      _EXCH_XYZ_RS(DiagUpVp, myThid )
-      ENDIF  
+ 
             
 C     Default value for GM_isopycK is equal to GM_background_K :
       IF (GM_isopycK.EQ.-999.) GM_isopycK = GM_background_K
@@ -399,7 +323,7 @@ C     Some constants
         GM_ExtraDiag = GM_isopycK.NE.GM_background_K
       ENDIF
       
-      IF (GM_useML .OR. REDI_useML .OR. UseDiagKgm) THEN
+      IF (GM_useML) THEN
                 GM_ExtraDiag = .TRUE.
       ENDIF
       
