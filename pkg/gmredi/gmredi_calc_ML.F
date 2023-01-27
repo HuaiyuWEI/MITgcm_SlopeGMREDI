@@ -687,8 +687,23 @@ C   ENDIF for (GM_UeLrh)
        ENDIF
        
 C   ENDIF for (GM_SlopeAware)              
-       ENDIF   
+      ENDIF   
 
+
+
+
+           
+          DO k=1,Nr
+           DO j=1-Oly,sNy+Oly
+            DO i=1-Olx,sNx+Olx  
+             GM_ML_k(i,j,k,bi,bj) =   GM_ML_temp(i,j,k)               
+            ENDDO
+           ENDDO
+          ENDDO 
+
+      
+      
+      
 C ENDIF for (GM_useML)      
        ENDIF
       
