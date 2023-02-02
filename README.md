@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/456872319.svg)](https://zenodo.org/badge/latestdoi/456872319)
+
 # Overview
 
 Energetically-constrained, bathymetry-aware parameterizations of buoyancy diffusivity ([Wang and Stewart, 2020](https://www.sciencedirect.com/science/article/pii/S1463500319301775?via%3Dihub)) are implemetented into [MITgcm](http://mitgcm.org) (source code checkpoint 68i) on the basis of the [GMREDI package](https://mitgcm.readthedocs.io/en/latest/phys_pkgs/gmredi.html). The parameterizations are augmented by an artificial neural network (ANN) that infers the mesoscale eddy kinetic energy (EKE) from the mean flow and topographic quantities online. Moreover, another ANN is employed to parameterize the cross-slope eddy momentum flux (EMF) that maintains an analogous barotropic flow field to that in an eddy-resolving model.
