@@ -1,0 +1,32 @@
+# =====================
+# | gmredi parameters |
+# =====================
+
+# Parameters for gmredi package
+ &GM_PARM01
+ GM_isopycK=0.00000000e+00,
+ GM_background_K=0.00000000e+00,
+ GM_maxSlope=1.00000000e-01,
+ GM_taper_scheme='clipping',
+ GM_Visbeck_alpha=0.00000000e+00,
+ GM_Visbeck_length=0.00000000e+00,
+ GM_Visbeck_depth=0.00000000e+00,
+ GM_Visbeck_minVal_K=0.00000000e+00,
+ GM_Visbeck_maxVal_K=0.00000000e+00,
+ GM_useML=.TRUE.,
+ REDI_useML=.FALSE.,
+ GM_SlopeAware=.TRUE.,
+ GM_UeLrh=.FALSE.,
+ GM_ML_minN2=1.00000000e-08,
+ GM_ML_minVal_K=0.00000000e+00,
+ GM_ML_maxVal_K=1.00000000e+03,
+ LeftReplacement=.TRUE.,
+ SmoothEner=.FALSE.,
+ UpVp_useML=.TRUE.,
+ SmoothUpVp=.FALSE.,
+ UpVp_ML_maxVal=1.00000000e+02,
+ DUpVpDy_ML_maxVal=1.00000000e-07,
+ UpVp_VertStruc=.FALSE.,
+ SmoothDUpVpDy=.FALSE.,
+ &
+
